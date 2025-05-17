@@ -1,0 +1,14 @@
+{
+  "name": "com.megurte.cms",
+  "version": "1.0.0",
+  "displayName": "Content Management System",
+  "description": "A modular CMS plugin for Unity. Allows defining and editing structured game data in the editor.",
+  "unity": "2022.3",
+  "author": {
+    "name": "megurt",
+    "url": "https://github.com/megurte"
+  },
+ "dependencies": {
+   "com.mackysoft.serializereferenceextensions": "https://github.com/mackysoft/Unity-SerializeReferenceExtensions.git?path=Assets/Plugins/SerializeReferenceExtensions"
+ }
+}
