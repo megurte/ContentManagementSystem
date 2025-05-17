@@ -38,7 +38,7 @@ The UI supports live filtering and search to navigate large datasets efficiently
 Access and load your CMS data at runtime using the provided API.  
 This allows you to dynamically load and use content in your game based on CMS definitions.
 
-## Code Exanples
+## Code Examples
 
 ### Entiry component definition
 ```csharp
