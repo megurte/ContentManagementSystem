@@ -10,4 +10,5 @@ Based on [XK's repository](https://github.com/koster/CMS), with bug fixes and an
 * Well-organized runtime and editor separation (Runtime/, Editor/)
 
 ## Installation
-TODO
+1. Open Unity Package Manager and add package via git URL - `https://github.com/megurte/ContentManagementSystem.git`
+2. Add dependency by adding `https://github.com/mackysoft/Unity-SerializeReferenceExtensions` by just installing source code or my fork via git URL as package `https://github.com/mackysoft/Unity-SerializeReferenceExtensions.git`
