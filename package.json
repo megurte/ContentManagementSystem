@@ -9,6 +9,6 @@
     "url": "https://github.com/megurte"
   },
  "dependencies": {
-   "com.mackysoft.serializereferenceextensions": "https://github.com/mackysoft/Unity-SerializeReferenceExtensions.git?path=Assets/Plugins/SerializeReferenceExtensions"
+   "com.mackysoft.serializereferenceextensions": "https://github.com/megurte/Unity-SerializeReferenceExtensions.git"
  }
 }
