@@ -22,7 +22,7 @@ Each entity is a data model that can be edited via the provided editor UI.
 
 CMS provides you:
 * **CMSEntiry** - definition of game entity via code 
-* **CMSEntiryPfb** - ScriptableObject-like model data which saves data in prefabs
+* **CMSEntiryPfb** - ScriptableObject-like model data which contains definitions in prefabs
 
 ### Example
 ![image](https://github.com/user-attachments/assets/722b7989-fa07-4a5b-86d0-0cc3573b486c)
