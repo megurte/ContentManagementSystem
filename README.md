@@ -10,5 +10,5 @@ Based on [XK's repository](https://github.com/koster/CMS), with bug fixes and an
 * Well-organized runtime and editor separation (Runtime/, Editor/)
 
 ## Installation
-1. Open Unity Package Manager and add package via git URL - `https://github.com/megurte/ContentManagementSystem.git`
-2. Add dependency by installing source code of mackysoft repository to your projecct `https://github.com/mackysoft/Unity-SerializeReferenceExtensions` or my fork via git URL as package `https://github.com/megurte/Unity-SerializeReferenceExtensions.git`
+1. Download [latest release](https://github.com/megurte/ContentManagementSystem/releases/tag/1.0.0) and install to your project as package
+2. Package already contains SerializeReferenceExtensions `https://github.com/mackysoft/Unity-SerializeReferenceExtensions`. If you already have it, exclude mackysoft's files import
