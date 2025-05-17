@@ -3,5 +3,5 @@
   "references": [
     "CMS"
   ],
-  "includePlatforms": ["Editor"]
+  "includePlatforms": [ "Editor" ]
 }
