@@ -42,26 +42,26 @@ This allows you to dynamically load and use content in your game based on CMS de
 
 ### Entiry component definition
 ```csharp
-    [Serializable]
-    public class TagStats : EntityComponentDefinition
-    {
-        public int healthVal;
-        public int damageVal;
-    }
+[Serializable]
+public class TagStats : EntityComponentDefinition
+{
+    public int healthVal;
+    public int damageVal;
+}
 ```
 ### New CMS entiry difinition via code 
 ```csharp
-    [Serializable]
-    public class CharacterEntity : CMSEntity
+[Serializable]
+public class CharacterEntity : CMSEntity
+{
+    public CharacterEntity()
     {
-        public CharacterEntity()
-        {
-            Define<TagName>().loc = "Astolfo";
-            Define<TagCost>().soulMana = 3;
-            Define<TagStats>().damageVal = 3;
-            Define<TagAbilityHealAtEndTurn>();
-        }
+        Define<TagName>().loc = "Astolfo";
+        Define<TagCost>().soulMana = 3;
+        Define<TagStats>().damageVal = 3;
+        Define<TagAbilityHealAtEndTurn>();
     }
+}
 ```
 ### Example of access to entiries
 ```csharp
