@@ -17,7 +17,7 @@ Based on [XK's repository](https://github.com/koster/CMS), with bug fixes and an
 Or use UPM installation:
 1. Open Unity Package Manager (`Window > Package Manager`).
 2. Click `+` > `Add package from git URL`.
-3. Paste link to pachge: 
+3. Paste link to package: 
 
 ```
 https://github.com/megurte/ContentManagementSystem.git?path=/src#1.0.3
