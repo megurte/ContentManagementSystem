@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Common;
-using TagsCommon;
+using Runtime;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
