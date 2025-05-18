@@ -75,6 +75,31 @@ if (bossEnemy.Is<TagSampleBehaviour>(out var behav)
   behav.Initialize();
 ```
 
+### Example of logic component definition
+```csharp
+    [Serializable]
+    public abstract class OpponentAI : EntityComponentDefinition
+    {
+        public abstract void TurnStartReasoning(CharacterState state, CharacterState target);
+    }
+
+    [Serializable]
+    public class TagCommonEnemyBehaviour : OpponentAI
+    {
+        public override void TurnStartReasoning(CharacterState state, CharacterState target)
+        {
+            foreach (var dice in state.diceStates)
+            {
+                var randomTargets = target.diceStates[Random.Range(0, target.diceStates.Count)];
+                var cardToPlay = state.availableCards[Random.Range(0, state.availableCards.Count)];
+                dice.TargetDice = randomTargets;
+                dice.CardToPlay = cardToPlay;
+                dice.view.As<DiceView>().SetReady(true);
+            }
+        }
+    }
+```
+
 ## Project Structure
 
 - `Editor/`: Custom editor scripts for UI and data interaction via Unity Editor
