@@ -109,11 +109,6 @@ if (bossEnemy.Is<TagSampleBehaviour>(out var behav)
     }
 ```
 
-## Project Structure
-
-- `Editor/`: Custom editor scripts for UI and data interaction via Unity Editor
-- `Runtime/`: Core logic and runtime-accessible data definitions
-
 ## Feedback
 
 Feel free to open an [Issue](https://github.com/megurte/ContentManagementSystem/issues) if you encounter bugs or have suggestions.
