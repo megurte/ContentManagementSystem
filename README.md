@@ -10,7 +10,7 @@ Based on [XK's repository](https://github.com/koster/CMS), with bug fixes and an
 * Well-organized runtime and editor separation (Runtime/, Editor/)
 
 ## Installation
-1. Download [latest release](https://github.com/megurte/ContentManagementSystem/releases/tag/1.0.0) and install to your project as package 
+1. Download [latest release](https://github.com/megurte/ContentManagementSystem/releases/latest) and install to your project as package 
 2. Package already contains SerializeReferenceExtensions `https://github.com/mackysoft/Unity-SerializeReferenceExtensions`. If you already have it, exclude the import of Mackysoft’s files
 3. Create inside of **Resource** folder **CMS** directory to fetch data from there
 
@@ -20,7 +20,7 @@ Or use UPM installation:
 3. Paste link to package: 
 
 ```
-https://github.com/megurte/ContentManagementSystem.git?path=/src#1.0.3
+https://github.com/megurte/ContentManagementSystem.git?path=/src#1.3.0
 ```
 
 ## Usage
