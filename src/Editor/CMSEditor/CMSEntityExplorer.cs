@@ -1,22 +1,32 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine;
 
 namespace Editor.CMSEditor
 {
+    public enum ViewModeExplorer
+    {
+        DefaultView = 0,
+        SearchView = 1
+    }
+    
     public class CMSEntityExplorer : EditorWindow
     {
         private const string SEARCH_PATH = "Assets/Resources";
+        private const string SEARCH_CONTROL_NAME = "CMSSearchField";
+        private bool _focusFirstItemNextFrame;
 
-        private string searchQuery = "";
-        private TreeViewState treeViewState;
-        private EntityTreeView treeView;
-        private Vector2 scrollPosition;
+        private string _searchQuery = "";
+        private TreeViewState _treeViewState;
+        private EntityTreeView _treeView;
+        private Vector2 _scrollPosition;
 
-        private GUIStyle clearButtonStyle;
+        private GUIStyle _clearButtonStyle;
 
-        [MenuItem("CMS/Explore/CMS Entity Explorer")]
+        [MenuItem("CMS/Explore/CMS Entity Explorer #&c")]
         public static void ShowWindow()
         {
             var window = GetWindow<CMSEntityExplorer>();
@@ -28,24 +38,47 @@ namespace Editor.CMSEditor
         {
             CMS.Init();
 
-            if (treeViewState == null)
-                treeViewState = new TreeViewState();
+            if (_treeViewState == null)
+                _treeViewState = new TreeViewState();
 
-            treeView = new EntityTreeView(treeViewState);
+            _treeView = new EntityTreeView(_treeViewState);
+            _treeView.FocusSearchFieldRequest = FocusSearchBar;
             PerformSearch();
+            
+            _focusFirstItemNextFrame = true;
+        }
+
+        public void FocusSearchBar()
+        {
+            GUI.FocusControl(SEARCH_CONTROL_NAME);
+        }
+        
+        private void FocusFirstItem()
+        {
+            var firstItem = _treeView.GetRows().FirstOrDefault();
+            if (firstItem != null)
+            {
+                FocusItem(firstItem.id);
+                Event.current.Use();
+            }
         }
 
         private void OnGUI()
         {
-            if (treeView == null)
+            var key = Event.current;
+            if (HandleExitOnKey(key)) return;
+                        
+            HandleSelectFirstItemAfterSearch();
+            
+            if (_treeView == null)
             {
                 OnEnable();
                 return;
             }
 
-            if (clearButtonStyle == null)
+            if (_clearButtonStyle == null)
             {
-                clearButtonStyle = new GUIStyle(EditorStyles.miniButton)
+                _clearButtonStyle = new GUIStyle(EditorStyles.miniButton)
                 {
                     fontSize = 12,
                     alignment = TextAnchor.MiddleCenter,
@@ -61,12 +94,13 @@ namespace Editor.CMSEditor
 
             EditorGUILayout.BeginHorizontal();
             EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
-
-            string newSearch = EditorGUILayout.TextField(searchQuery, EditorStyles.toolbarSearchField);
-
-            if (!string.IsNullOrEmpty(searchQuery))
+            
+            GUI.SetNextControlName(SEARCH_CONTROL_NAME);
+            var newSearch = EditorGUILayout.TextField(_searchQuery, EditorStyles.toolbarSearchField);
+            
+            if (!string.IsNullOrEmpty(_searchQuery))
             {
-                if (GUILayout.Button("×", clearButtonStyle, GUILayout.Width(16)))
+                if (GUILayout.Button("×", _clearButtonStyle, GUILayout.Width(16)))
                 {
                     newSearch = "";
                     GUI.FocusControl(null);
@@ -75,19 +109,65 @@ namespace Editor.CMSEditor
 
             EditorGUILayout.EndHorizontal();
 
-            if (newSearch != searchQuery)
+            if (newSearch != _searchQuery)
             {
-                searchQuery = newSearch;
+                _searchQuery = newSearch;
                 PerformSearch();
             }
 
             EditorGUILayout.EndHorizontal();
 
             var rect = EditorGUILayout.GetControlRect(false, GUILayout.ExpandHeight(true));
-            if (treeView != null)
+            if (_treeView != null)
             {
-                treeView.OnGUI(rect);
+                _treeView.OnGUI(rect);
             }
+            
+            if (_focusFirstItemNextFrame && _treeView.GetRows().Count > 0)
+            {
+                _focusFirstItemNextFrame = false;
+
+                FocusFirstItem();
+            }
+        }
+
+        private void HandleSelectFirstItemAfterSearch()
+        {
+            if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.DownArrow)
+            {
+                if (GUI.GetNameOfFocusedControl() == SEARCH_CONTROL_NAME)
+                {
+                    FocusFirstItem();
+                }
+            }
+        }
+
+        private bool HandleExitOnKey(Event key)
+        {
+            if (key.type == EventType.KeyDown && key.keyCode == KeyCode.Escape)
+            {
+                Close();
+                GUIUtility.ExitGUI();
+                return true;
+            }
+
+            return false;
+        }
+
+        public void FocusTreeViewAndReselect(int id)
+        {
+            if (_treeView == null)
+                return;
+
+            Focus();
+            FocusItem(id);
+        }
+
+        private void FocusItem(int id)
+        {
+            _treeView.SetSelection(new[] { id });
+            _treeView.FrameItem(id);
+            _treeView.SetFocus();
         }
 
         private void PerformSearch()
@@ -106,53 +186,122 @@ namespace Editor.CMSEditor
 
                     if (cmsEntity != null)
                     {
-                        if (string.IsNullOrEmpty(searchQuery) ||
-                            (cmsEntity.name != null && cmsEntity.name.ToLower().Contains(searchQuery.ToLower())))
+                        if (string.IsNullOrEmpty(_searchQuery) ||
+                            (cmsEntity.name != null && cmsEntity.name.ToLower().Contains(_searchQuery.ToLower())))
                         {
                             results.Add(new SearchResult
                             {
-                                Prefab = prefab,
-                                Entity = cmsEntity,
-                                DisplayName = $"{prefab.name} ({cmsEntity.GetType().Name})",
-                                Sprite = cmsEntity.GetSprite()
+                                prefab = prefab,
+                                entity = cmsEntity,
+                                displayName = $"{prefab.name} ({cmsEntity.GetType().Name})",
+                                sprite = cmsEntity.GetSprite()
                             });
                         }
                     }
                 }
             }
 
-            treeView.SetSearchResults(results);
+            var view = !string.IsNullOrEmpty(_searchQuery) ? ViewModeExplorer.SearchView : ViewModeExplorer.DefaultView;
+            _treeView.SetSearchResults(results, view);
+        }
+
+        public void OnDestroy()
+        {
+            CMSMenuItems.CMSReload();
         }
     }
 
     public class EntityTreeView : TreeView
     {
-        private List<SearchResult> searchResults = new List<SearchResult>();
+        private ViewModeExplorer _viewMode;
+        private List<SearchResult> _searchResults = new();
         private const float ROW_HEIGHT = 32f; // Increased height to accommodate sprite
-
+        
+        public Action FocusSearchFieldRequest;
+        
         public EntityTreeView(TreeViewState state) : base(state)
         {
             rowHeight = ROW_HEIGHT;
             Reload();
         }
-
-        public void SetSearchResults(List<SearchResult> results)
+        
+        public void SetSearchResults(List<SearchResult> results, ViewModeExplorer mode)
         {
-            searchResults = results;
+            _searchResults = results;
+            _viewMode = mode;
             Reload();
         }
+        
+        protected override void KeyEvent()
+        {
+            if (Event.current.type == EventType.KeyDown)
+            {
+                // Enter to open current entity
+                if (Event.current.keyCode == KeyCode.Return || Event.current.keyCode == KeyCode.KeypadEnter)
+                {
+                    var selected = GetSelection();
+                    if (selected.Count == 1)
+                    {
+                        if (FindItem(selected[0], rootItem) is EntityTreeViewItem item)
+                        {
+                            var explorerWindow = EditorWindow.GetWindow<CMSEntityExplorer>();
+                            var windowRect = explorerWindow.position;
 
+                            CMSEntityInspectorWindow.ShowWindow(item.entity, windowRect, explorerWindow, item.id);
+                            Event.current.Use();
+                        }
+                    }
+                }
+                
+                // Arrow Up to move to search bar
+                if (Event.current.keyCode == KeyCode.UpArrow)
+                {
+                    var selected = GetSelection();
+                    if (selected.Count == 1 && selected[0] == GetRows().FirstOrDefault()?.id)
+                    {
+                        FocusSearchFieldRequest?.Invoke();
+                        Event.current.Use();
+                    }
+                }
+                else
+                {
+                    base.KeyEvent();
+                }
+            }
+        }
+        
         protected override TreeViewItem BuildRoot()
         {
             var root = new TreeViewItem { id = 0, depth = -1, displayName = "Root" };
+            
+            if (_viewMode == ViewModeExplorer.SearchView)
+            {
+                // Full list
+                var id = 1;
+                root.children = _searchResults
+                    .Select(result => new EntityTreeViewItem
+                    {
+                        id = id++,
+                        depth = 0,
+                        displayName = result.displayName,
+                        prefab = result.prefab,
+                        entity = result.entity,
+                        sprite = result.sprite
+                    })
+                    .Cast<TreeViewItem>()
+                    .ToList();
+
+                SetupDepthsFromParentsAndChildren(root);
+                return root;
+            }
+            
             var pathToItem = new Dictionary<string, TreeViewItem>();
             pathToItem[""] = root;
+            var idCounter = 1;
 
-            int idCounter = 1;
-
-            foreach (var result in searchResults)
+            foreach (var result in _searchResults)
             {
-                string assetPath = AssetDatabase.GetAssetPath(result.Prefab);
+                string assetPath = AssetDatabase.GetAssetPath(result.prefab);
                 string relativePath = assetPath.Replace("Assets/Resources/CMS/Prefabs/", "").Replace(".prefab", "");
                 string[] parts = relativePath.Split('/');
 
@@ -173,10 +322,10 @@ namespace Editor.CMSEditor
                             {
                                 id = idCounter++,
                                 depth = i,
-                                displayName = result.DisplayName,
-                                prefab = result.Prefab,
-                                entity = result.Entity,
-                                sprite = result.Sprite
+                                displayName = result.displayName,
+                                prefab = result.prefab,
+                                entity = result.entity,
+                                sprite = result.sprite
                             }
                             : new TreeViewItem
                             {
@@ -197,8 +346,7 @@ namespace Editor.CMSEditor
                 }
             }
             
-            if (root.children == null)
-                root.children = new List<TreeViewItem>();
+            root.children ??= new List<TreeViewItem>();
             
             SetupDepthsFromParentsAndChildren(root);
             return root;
@@ -208,9 +356,9 @@ namespace Editor.CMSEditor
         {
             var indent = GetContentIndent(args.item);
             var rowRect = args.rowRect;
-            float iconPadding = 4f;
-            float iconSize = rowHeight - 4f;
-            float iconOffset = indent;
+            var iconPadding = 4f;
+            var iconSize = rowHeight - 4f;
+            var iconOffset = indent;
 
             if (args.item is EntityTreeViewItem entityItem)
             {
@@ -219,7 +367,6 @@ namespace Editor.CMSEditor
 
                 if (sprite != null)
                 {
-                    // 🖼 Отрисовка спрайта
                     GUI.DrawTextureWithTexCoords(
                         iconRect,
                         sprite.texture,
@@ -232,13 +379,11 @@ namespace Editor.CMSEditor
                     );
                 }
 
-                // 📝 Текст — всегда смещается, даже если спрайта нет
                 var labelRect = new Rect(iconRect.xMax + iconPadding, rowRect.y, rowRect.width, rowHeight);
                 EditorGUI.LabelField(labelRect, args.label);
             }
             else
             {
-                // 📁 Папка
                 var folderIcon = EditorGUIUtility.IconContent("Folder Icon").image;
                 var iconRect = new Rect(rowRect.x + indent, rowRect.y + (rowHeight - iconSize) / 2, iconSize, iconSize);
                 GUI.DrawTexture(iconRect, folderIcon, ScaleMode.ScaleToFit);
@@ -269,6 +414,59 @@ namespace Editor.CMSEditor
             }
         }
     }
+    
+    public class CMSEntityInspectorWindow : EditorWindow
+    {
+        private UnityEngine.Object _target;
+        private CMSEntityExplorer _explorer;
+        private int _selectedId;
+        private Vector2 _scrollPosition;
+        
+        public static void ShowWindow(UnityEngine.Object target, Rect anchorRect, CMSEntityExplorer explorer, int selectedId)
+        {
+            var window = CreateInstance<CMSEntityInspectorWindow>();
+            window._target = target;
+            window._explorer = explorer;
+            window._selectedId = selectedId;
+            window.titleContent = new GUIContent(target.name);
+            window.position = new Rect(anchorRect.xMin - 400 - 10, anchorRect.yMin, 600, anchorRect.height);
+            window.ShowUtility();
+            window.Focus();
+        }
+
+        private void OnGUI()
+        {
+            if (_target == null)
+            {
+                EditorGUILayout.HelpBox("No target to inspect.", MessageType.Warning);
+                return;
+            }
+
+            var e = Event.current;
+            if (e.type == EventType.KeyDown && e.keyCode == KeyCode.Escape)
+            {
+                Close();
+                GUIUtility.ExitGUI();
+                return;
+            }
+
+            _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
+    
+            EditorGUI.indentLevel = 0;
+            var editor = UnityEditor.Editor.CreateEditor(_target);
+            editor.OnInspectorGUI();
+            
+            EditorGUILayout.EndScrollView();
+        }
+        
+        private void OnDestroy()
+        {
+            if (_explorer != null && _selectedId != -1)
+            {
+                _explorer.FocusTreeViewAndReselect(_selectedId);
+            }
+        }
+    }
 
     public class EntityTreeViewItem : TreeViewItem
     {
@@ -279,10 +477,10 @@ namespace Editor.CMSEditor
 
     public class SearchResult
     {
-        public GameObject Prefab;
-        public CMSEntityPfb Entity;
-        public string DisplayName;
-        public Sprite Sprite;
+        public GameObject prefab;
+        public CMSEntityPfb entity;
+        public string displayName;
+        public Sprite sprite;
     }
     
     [CustomEditor(typeof(CMSEntityPfb))]

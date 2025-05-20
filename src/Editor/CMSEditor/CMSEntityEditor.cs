@@ -9,13 +9,13 @@ namespace Editor.CMSEditor
     [CustomEditor(typeof(CMSEntity))]
     public class CMSEntityEditor : UnityEditor.Editor
     {
-        private SerializedProperty idProperty;
-        private SerializedProperty componentsProperty;
+        private SerializedProperty _idProperty;
+        private SerializedProperty _componentsProperty;
 
         private void OnEnable()
         {
-            idProperty = serializedObject.FindProperty("id");
-            componentsProperty = serializedObject.FindProperty("components");
+            _idProperty = serializedObject.FindProperty("id");
+            _componentsProperty = serializedObject.FindProperty("components");
         }
 
         public override void OnInspectorGUI()
@@ -23,35 +23,42 @@ namespace Editor.CMSEditor
             serializedObject.Update();
 
             EditorGUILayout.LabelField("Card State", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(idProperty);
+            EditorGUILayout.PropertyField(_idProperty);
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Components", EditorStyles.boldLabel);
 
             using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
             {
-                for (int i = 0; i < componentsProperty.arraySize; i++)
+                for (int i = 0; i < _componentsProperty.arraySize; i++)
                 {
-                    var element = componentsProperty.GetArrayElementAtIndex(i);
+                    var element = _componentsProperty.GetArrayElementAtIndex(i);
+                    var typeName = element.managedReferenceFullTypename?.Split(' ').Last() ?? "Unknown";
 
                     EditorGUILayout.BeginHorizontal();
 
-                    EditorGUILayout.LabelField($"[{i}] {element.managedReferenceFullTypename.Split(' ')[1]}",
-                        EditorStyles.boldLabel);
+                    element.isExpanded = EditorGUILayout.Foldout(
+                        element.isExpanded,
+                        $"[{i}] {typeName}",
+                        true,
+                        EditorStyles.foldout
+                    );
 
-                    // Кнопка удаления компонента
                     if (GUILayout.Button("X", GUILayout.Width(20)))
                     {
-                        componentsProperty.DeleteArrayElementAtIndex(i);
+                        _componentsProperty.DeleteArrayElementAtIndex(i);
                         serializedObject.ApplyModifiedProperties();
                         return;
                     }
 
                     EditorGUILayout.EndHorizontal();
 
-                    EditorGUI.indentLevel++;
-                    EditorGUILayout.PropertyField(element, GUIContent.none, true);
-                    EditorGUI.indentLevel--;
+                    if (element.isExpanded)
+                    {
+                        EditorGUI.indentLevel++;
+                        EditorGUILayout.PropertyField(element, GUIContent.none, true);
+                        EditorGUI.indentLevel--;
+                    }
                 }
 
                 if (GUILayout.Button("+ Add Component"))
@@ -78,11 +85,11 @@ namespace Editor.CMSEditor
                 {
                     var newComponent = Activator.CreateInstance(type) as EntityComponentDefinition;
 
-                    componentsProperty.serializedObject.Update();
-                    componentsProperty.arraySize++;
-                    componentsProperty.GetArrayElementAtIndex(componentsProperty.arraySize - 1).managedReferenceValue =
+                    _componentsProperty.serializedObject.Update();
+                    _componentsProperty.arraySize++;
+                    _componentsProperty.GetArrayElementAtIndex(_componentsProperty.arraySize - 1).managedReferenceValue =
                         newComponent;
-                    componentsProperty.serializedObject.ApplyModifiedProperties();
+                    _componentsProperty.serializedObject.ApplyModifiedProperties();
                 });
             }
 

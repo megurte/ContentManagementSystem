@@ -22,19 +22,20 @@ public class CMSEntityPfb : MonoBehaviour
         return AsEntity().Get<T>();
     }
     
-    public Sprite GetSprite()
+    public virtual Sprite GetSprite()
     {
         if (Components == null) return null;
         
         foreach (var component in Components)
         {
+            // Use this to fetch sprite data from your different view variations
             switch (component)
             {
                 case TagSprite tagSprite when tagSprite.sprite != null:
                     return tagSprite.sprite;
             }
         }
-
+        
         return null;
     }
 }
