@@ -15,16 +15,16 @@ namespace Editor.CMSEditor
     
     public class CMSEntityExplorer : EditorWindow
     {
-        private const string SEARCH_PATH = "Assets/Resources";
-        private const string SEARCH_CONTROL_NAME = "CMSSearchField";
+        private const string SearchPath = "Assets/Resources";
+        private const string SearchControlName = "CMSSearchField";
         private bool _focusFirstItemNextFrame;
 
         private string _searchQuery = "";
         private TreeViewState _treeViewState;
         private EntityTreeView _treeView;
         private Vector2 _scrollPosition;
-
         private GUIStyle _clearButtonStyle;
+        private ViewModeExplorer _viewMode;
 
         [MenuItem("CMS/Explore/CMS Entity Explorer #&c")]
         public static void ShowWindow()
@@ -37,20 +37,38 @@ namespace Editor.CMSEditor
         private void OnEnable()
         {
             CMS.Init();
-
+            
+            _viewMode = ViewModeExplorer.DefaultView;
+            
             if (_treeViewState == null)
                 _treeViewState = new TreeViewState();
 
             _treeView = new EntityTreeView(_treeViewState);
-            _treeView.FocusSearchFieldRequest = FocusSearchBar;
+            _treeView.focusSearchFieldRequest = FocusSearchBar;
             PerformSearch();
             
             _focusFirstItemNextFrame = true;
+            
+            EditorApplication.projectChanged += OnProjectChanged;
+        }
+        
+        private void OnDisable()
+        {
+            EditorApplication.projectChanged -= OnProjectChanged;
+        }
+        
+        private void OnProjectChanged()
+        {
+            if (_viewMode == ViewModeExplorer.DefaultView)
+            {
+                PerformSearch();
+                Repaint();
+            }
         }
 
-        public void FocusSearchBar()
+        private void FocusSearchBar()
         {
-            GUI.FocusControl(SEARCH_CONTROL_NAME);
+            GUI.FocusControl(SearchControlName);
         }
         
         private void FocusFirstItem()
@@ -95,7 +113,7 @@ namespace Editor.CMSEditor
             EditorGUILayout.BeginHorizontal();
             EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
             
-            GUI.SetNextControlName(SEARCH_CONTROL_NAME);
+            GUI.SetNextControlName(SearchControlName);
             var newSearch = EditorGUILayout.TextField(_searchQuery, EditorStyles.toolbarSearchField);
             
             if (!string.IsNullOrEmpty(_searchQuery))
@@ -135,7 +153,7 @@ namespace Editor.CMSEditor
         {
             if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.DownArrow)
             {
-                if (GUI.GetNameOfFocusedControl() == SEARCH_CONTROL_NAME)
+                if (GUI.GetNameOfFocusedControl() == SearchControlName)
                 {
                     FocusFirstItem();
                 }
@@ -172,13 +190,13 @@ namespace Editor.CMSEditor
 
         private void PerformSearch()
         {
-            var guids = AssetDatabase.FindAssets("t:Prefab", new[] {SEARCH_PATH});
+            var guids = AssetDatabase.FindAssets("t:Prefab", new[] {SearchPath});
             var results = new List<SearchResult>();
 
             foreach (var guid in guids)
             {
-                string path = AssetDatabase.GUIDToAssetPath(guid);
-                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                var path = AssetDatabase.GUIDToAssetPath(guid);
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
 
                 if (prefab != null)
                 {
@@ -187,13 +205,13 @@ namespace Editor.CMSEditor
                     if (cmsEntity != null)
                     {
                         if (string.IsNullOrEmpty(_searchQuery) ||
-                            (cmsEntity.name != null && cmsEntity.name.ToLower().Contains(_searchQuery.ToLower())))
+                            (cmsEntity.name.ToLower().Contains(_searchQuery.ToLower())))
                         {
                             results.Add(new SearchResult
                             {
                                 prefab = prefab,
                                 entity = cmsEntity,
-                                displayName = $"{prefab.name} ({cmsEntity.GetType().Name})",
+                                displayName = $"{prefab.name}",
                                 sprite = cmsEntity.GetSprite()
                             });
                         }
@@ -201,8 +219,8 @@ namespace Editor.CMSEditor
                 }
             }
 
-            var view = !string.IsNullOrEmpty(_searchQuery) ? ViewModeExplorer.SearchView : ViewModeExplorer.DefaultView;
-            _treeView.SetSearchResults(results, view);
+            _viewMode = !string.IsNullOrEmpty(_searchQuery) ? ViewModeExplorer.SearchView : ViewModeExplorer.DefaultView;
+            _treeView.SetSearchResults(results, _viewMode);
         }
 
         public void OnDestroy()
@@ -215,13 +233,13 @@ namespace Editor.CMSEditor
     {
         private ViewModeExplorer _viewMode;
         private List<SearchResult> _searchResults = new();
-        private const float ROW_HEIGHT = 32f; // Increased height to accommodate sprite
+        private const float RowHeight = 32; // Increased height to accommodate sprite
         
-        public Action FocusSearchFieldRequest;
+        public Action focusSearchFieldRequest;
         
         public EntityTreeView(TreeViewState state) : base(state)
         {
-            rowHeight = ROW_HEIGHT;
+            rowHeight = RowHeight;
             Reload();
         }
         
@@ -259,7 +277,7 @@ namespace Editor.CMSEditor
                     var selected = GetSelection();
                     if (selected.Count == 1 && selected[0] == GetRows().FirstOrDefault()?.id)
                     {
-                        FocusSearchFieldRequest?.Invoke();
+                        focusSearchFieldRequest?.Invoke();
                         Event.current.Use();
                     }
                 }
@@ -301,21 +319,21 @@ namespace Editor.CMSEditor
 
             foreach (var result in _searchResults)
             {
-                string assetPath = AssetDatabase.GetAssetPath(result.prefab);
-                string relativePath = assetPath.Replace("Assets/Resources/CMS/Prefabs/", "").Replace(".prefab", "");
-                string[] parts = relativePath.Split('/');
+                var assetPath = AssetDatabase.GetAssetPath(result.prefab);
+                var relativePath = assetPath.Replace("Assets/Resources/CMS/Prefabs/", "").Replace(".prefab", "");
+                var parts = relativePath.Split('/');
 
-                string currentPath = "";
-                TreeViewItem parent = root;
+                var currentPath = "";
+                var parent = root;
 
-                for (int i = 0; i < parts.Length; i++)
+                for (var i = 0; i < parts.Length; i++)
                 {
-                    string part = parts[i];
+                    var part = parts[i];
                     currentPath = string.IsNullOrEmpty(currentPath) ? part : $"{currentPath}/{part}";
 
                     if (!pathToItem.TryGetValue(currentPath, out var item))
                     {
-                        bool isLeaf = i == parts.Length - 1;
+                        var isLeaf = i == parts.Length - 1;
 
                         item = isLeaf
                             ? new EntityTreeViewItem
@@ -336,9 +354,7 @@ namespace Editor.CMSEditor
 
                         pathToItem[currentPath] = item;
 
-                        if (parent.children == null)
-                            parent.children = new List<TreeViewItem>();
-
+                        parent.children ??= new List<TreeViewItem>();
                         parent.children.Add(item);
                     }
 
