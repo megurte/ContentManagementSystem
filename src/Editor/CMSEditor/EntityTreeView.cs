@@ -17,9 +17,12 @@ namespace src.Editor.CMSEditor
     
     public class EntityTreeView : TreeView
     {
+        public bool IsRenaming => _renameId > 0;
+        
         private ViewModeExplorer _viewMode;
         private List<SearchResult> _searchResults = new();
         private const float RowHeight = 32; // Increased height to accommodate sprite
+        private int _renameId  = -1;
 
         public Action focusSearchFieldRequest;
 
@@ -45,10 +48,10 @@ namespace src.Editor.CMSEditor
         {
             if (Event.current.type == EventType.KeyDown)
             {
-                ReadKeyToOpenEntity();
+                HandleOpenEntityKey();
 
-                ReadKeyToRenameEntity();
-
+                HandleRenameEntityKey();
+                
                 // Arrow Up to move to search bar
                 if (Event.current.keyCode == KeyCode.UpArrow)
                 {
@@ -66,32 +69,16 @@ namespace src.Editor.CMSEditor
             }
         }
 
-        private void ReadKeyToRenameEntity()
+        private void HandleRenameEntityKey()
         {
             if (Event.current.keyCode == KeyCode.F2)
             {
-                var selected = GetSelection();
-                if (selected.Count == 1)
-                {
-                    var item = FindItem(selected[0], rootItem) as EntityTreeViewItem;
-                    if (item != null)
-                    {
-                        var path = AssetDatabase.GetAssetPath(item.prefab);
-                        var guid = AssetDatabase.AssetPathToGUID(path);
-                        ProjectWindowUtil.StartNameEditingIfProjectWindowExists(
-                            0,
-                            ScriptableObject.CreateInstance<RenameAssetAction>(),
-                            path,
-                            AssetPreview.GetMiniThumbnail(item.prefab),
-                            guid
-                        );
-                        Event.current.Use();
-                    }
-                }
+                BeginRenameSelectedItem();
+                Event.current.Use();
             }
         }
 
-        private void ReadKeyToOpenEntity()
+        private void HandleOpenEntityKey()
         {
             // Enter to open current entity
             if (Event.current.keyCode == KeyCode.Return || Event.current.keyCode == KeyCode.KeypadEnter)
@@ -198,7 +185,9 @@ namespace src.Editor.CMSEditor
             var iconPadding = 4f;
             var iconSize = rowHeight - 4f;
             var iconOffset = indent;
-
+            
+            HandleCancelRenameKey();
+            
             if (args.item is EntityTreeViewItem entityItem)
             {
                 var sprite = entityItem.sprite;
@@ -250,6 +239,67 @@ namespace src.Editor.CMSEditor
             {
                 Selection.activeObject = entityItem.prefab;
                 EditorUtility.OpenPropertyEditor(entityItem.entity);
+            }
+        }
+        
+        private void HandleCancelRenameKey()
+        {
+            if (Event.current.keyCode == KeyCode.Escape)
+            {
+                _renameId = -1;
+                Event.current.Use();
+            }
+        }
+        
+        protected override bool CanRename(TreeViewItem item)
+        {
+            return item is EntityTreeViewItem;
+        }
+        
+        protected override void RenameEnded(RenameEndedArgs args)
+        {
+            _renameId = -1;
+            
+            if (!args.acceptedRename)
+                return;
+
+            var item = FindItem(args.itemID, rootItem) as EntityTreeViewItem;
+            if (item == null) return;
+
+            var oldPath = AssetDatabase.GetAssetPath(item.prefab);
+            var newName = args.newName;
+            var newPath = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(oldPath), newName + ".prefab");
+
+            var result = AssetDatabase.RenameAsset(oldPath, newName);
+            if (!string.IsNullOrEmpty(result))
+            {
+                Debug.LogError($"Rename failed: {result}");
+                return;
+            }
+
+            var go = AssetDatabase.LoadAssetAtPath<GameObject>(newPath);
+            var entity = go.GetComponent<CMSEntityPfb>();
+            go.name = newName;
+            CMSEntityIdSetter.UpdateEntityId(entity, newPath);
+            EditorUtility.SetDirty(go);
+            AssetDatabase.SaveAssets();
+
+            item.displayName = newName;
+            Reload(); 
+        }
+        
+        private void BeginRenameSelectedItem()
+        {
+            var selected = GetSelection();
+            if (selected.Count != 1)
+                return;
+
+            var item = FindItem(selected[0], rootItem);
+            if (item != null && CanRename(item))
+            {
+                _renameId = item.id;
+                GUI.FocusControl("RenameField");
+                BeginRename(item);
             }
         }
     }

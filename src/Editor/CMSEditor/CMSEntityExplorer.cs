@@ -107,7 +107,7 @@ namespace Editor.CMSEditor
             }
 
             EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
-            GUILayout.Label("CMS Entity Explorer", EditorStyles.boldLabel);
+            //GUILayout.Label("CMS Entity Explorer", EditorStyles.boldLabel);
             DrawToolButtons();
             EditorGUILayout.EndHorizontal();
 
@@ -248,6 +248,8 @@ namespace Editor.CMSEditor
 
         private bool HandleExitOnKey(Event key)
         {
+            if (_treeView.IsRenaming) return false;
+            
             if (key.type == EventType.KeyDown && key.keyCode == KeyCode.Escape)
             {
                 Close();
