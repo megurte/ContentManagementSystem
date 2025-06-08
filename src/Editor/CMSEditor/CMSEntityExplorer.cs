@@ -26,7 +26,7 @@ namespace Editor.CMSEditor
         private GUIStyle _clearButtonStyle;
         private ViewModeExplorer _viewMode;
 
-        [MenuItem("CMS/Explore/CMS Entity Explorer #&c")]
+        [MenuItem("CMS/CMS Entity Explorer #&c")]
         public static void ShowWindow()
         {
             var window = GetWindow<CMSEntityExplorer>();
@@ -248,9 +248,9 @@ namespace Editor.CMSEditor
 
         private bool HandleExitOnKey(Event key)
         {
-            if (_treeView.IsRenaming) return false;
-            
-            if (key.type == EventType.KeyDown && key.keyCode == KeyCode.Escape)
+            if (key.type == EventType.KeyDown 
+                && key.keyCode == KeyCode.Escape 
+                && !_treeView.IsRenaming)
             {
                 Close();
                 GUIUtility.ExitGUI();

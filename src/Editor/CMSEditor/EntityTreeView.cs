@@ -208,7 +208,12 @@ namespace src.Editor.CMSEditor
                 }
 
                 var labelRect = new Rect(iconRect.xMax + iconPadding, rowRect.y, rowRect.width, rowHeight);
-                EditorGUI.LabelField(labelRect, args.label);
+                EditorGUI.LabelField(labelRect, args.label, new GUIStyle(EditorStyles.label)
+                {
+                    fontStyle = FontStyle.Bold,
+                    fontSize = 13,
+                    alignment = TextAnchor.MiddleLeft
+                });
             }
             else
             {
@@ -220,7 +225,7 @@ namespace src.Editor.CMSEditor
                 EditorGUI.LabelField(labelRect, args.label);
             }
         }
-
+        
         protected override void SingleClickedItem(int id)
         {
             var clickedItem = FindItem(id, rootItem);
@@ -250,6 +255,11 @@ namespace src.Editor.CMSEditor
                 Event.current.Use();
             }
         }
+                
+        private bool IsRenamingItem(int itemId)
+        {
+            return _renameId == itemId;
+        }
         
         protected override bool CanRename(TreeViewItem item)
         {
@@ -258,8 +268,6 @@ namespace src.Editor.CMSEditor
         
         protected override void RenameEnded(RenameEndedArgs args)
         {
-            _renameId = -1;
-            
             if (!args.acceptedRename)
                 return;
 
@@ -285,6 +293,7 @@ namespace src.Editor.CMSEditor
             AssetDatabase.SaveAssets();
 
             item.displayName = newName;
+            _renameId = -1;
             Reload(); 
         }
         
