@@ -1,6 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
+using src.Editor.CMSEditor;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine;
@@ -108,6 +108,7 @@ namespace Editor.CMSEditor
 
             EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
             GUILayout.Label("CMS Entity Explorer", EditorStyles.boldLabel);
+            DrawToolButtons();
             EditorGUILayout.EndHorizontal();
 
             EditorGUILayout.BeginHorizontal();
@@ -147,6 +148,91 @@ namespace Editor.CMSEditor
 
                 FocusFirstItem();
             }
+        }
+
+        private void DrawToolButtons()
+        {
+            EditorGUILayout.BeginHorizontal();
+
+            if (GUILayout.Button("Add", EditorStyles.toolbarButton, GUILayout.Width(40)))
+            {
+                AddNewEntityFromSelection();
+            }
+
+            if (GUILayout.Button("Delete", EditorStyles.toolbarButton, GUILayout.Width(50)))
+            {
+                DeleteSelectedEntity();
+            }
+
+            EditorGUILayout.EndHorizontal();
+        }
+
+        private void AddNewEntityFromSelection()
+        {
+            if (_treeView == null || _treeView.GetSelection().Count == 0)
+            {
+                Debug.LogWarning("No selection in tree view.");
+                return;
+            }
+
+            var selectedId = _treeView.GetSelection()[0];
+            var item = _treeView.GetEntityItemById(selectedId);
+            if (item == null)
+                return;
+
+            var prefabPath = AssetDatabase.GetAssetPath(item.prefab);
+            var folderPath = System.IO.Path.GetDirectoryName(prefabPath);
+
+            AddNewEntity(folderPath);
+        }
+        
+        private void AddNewEntity(string folderPath)
+        {
+            var path = folderPath;
+            var baseName = "NewEntity";
+            var counter = 1;
+
+            while (AssetDatabase.LoadAssetAtPath<GameObject>($"{path}/{baseName}{counter}.prefab") != null)
+            {
+                counter++;
+            }
+
+            var finalName = $"{baseName}{counter}";
+            var assetPath = $"{path}/{finalName}.prefab";
+
+            var go = new GameObject(finalName);
+            var entity = go.AddComponent<CMSEntityPfb>();
+            entity.name = finalName;
+            CMSEntityIdSetter.UpdateEntityId(entity, assetPath);
+
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, assetPath);
+            EditorUtility.SetDirty(prefab);
+            DestroyImmediate(go);
+
+            AssetDatabase.Refresh();
+            PerformSearch();
+        }
+
+        private void DeleteSelectedEntity()
+        {
+            if (_treeView == null || _treeView.GetSelection().Count == 0)
+                return;
+
+            var selectedId = _treeView.GetSelection()[0];
+            var item = _treeView.GetEntityItemById(selectedId);
+
+            if (item == null)
+                return;
+
+            var assetPath = AssetDatabase.GetAssetPath(item.prefab);
+
+            if (!EditorUtility.DisplayDialog("Delete Entity",
+                    $"Are you sure you want to delete '{item.prefab.name}'?", "Yes", "Cancel"))
+                return;
+
+            AssetDatabase.DeleteAsset(assetPath);
+            AssetDatabase.Refresh();
+            PerformSearch();
         }
 
         private void HandleSelectFirstItemAfterSearch()
@@ -229,307 +315,11 @@ namespace Editor.CMSEditor
         }
     }
 
-    public class EntityTreeView : TreeView
-    {
-        private ViewModeExplorer _viewMode;
-        private List<SearchResult> _searchResults = new();
-        private const float RowHeight = 32; // Increased height to accommodate sprite
-        
-        public Action focusSearchFieldRequest;
-        
-        public EntityTreeView(TreeViewState state) : base(state)
-        {
-            rowHeight = RowHeight;
-            Reload();
-        }
-        
-        public void SetSearchResults(List<SearchResult> results, ViewModeExplorer mode)
-        {
-            _searchResults = results;
-            _viewMode = mode;
-            Reload();
-        }
-        
-        protected override void KeyEvent()
-        {
-            if (Event.current.type == EventType.KeyDown)
-            {
-                // Enter to open current entity
-                if (Event.current.keyCode == KeyCode.Return || Event.current.keyCode == KeyCode.KeypadEnter)
-                {
-                    var selected = GetSelection();
-                    if (selected.Count == 1)
-                    {
-                        if (FindItem(selected[0], rootItem) is EntityTreeViewItem item)
-                        {
-                            var explorerWindow = EditorWindow.GetWindow<CMSEntityExplorer>();
-                            var windowRect = explorerWindow.position;
-
-                            CMSEntityInspectorWindow.ShowWindow(item.entity, windowRect, explorerWindow, item.id);
-                            Event.current.Use();
-                        }
-                    }
-                }
-                
-                // Arrow Up to move to search bar
-                if (Event.current.keyCode == KeyCode.UpArrow)
-                {
-                    var selected = GetSelection();
-                    if (selected.Count == 1 && selected[0] == GetRows().FirstOrDefault()?.id)
-                    {
-                        focusSearchFieldRequest?.Invoke();
-                        Event.current.Use();
-                    }
-                }
-                else
-                {
-                    base.KeyEvent();
-                }
-            }
-        }
-        
-        protected override TreeViewItem BuildRoot()
-        {
-            var root = new TreeViewItem { id = 0, depth = -1, displayName = "Root" };
-            
-            if (_viewMode == ViewModeExplorer.SearchView)
-            {
-                // Full list
-                var id = 1;
-                root.children = _searchResults
-                    .Select(result => new EntityTreeViewItem
-                    {
-                        id = id++,
-                        depth = 0,
-                        displayName = result.displayName,
-                        prefab = result.prefab,
-                        entity = result.entity,
-                        sprite = result.sprite
-                    })
-                    .Cast<TreeViewItem>()
-                    .ToList();
-
-                SetupDepthsFromParentsAndChildren(root);
-                return root;
-            }
-            
-            var pathToItem = new Dictionary<string, TreeViewItem>();
-            pathToItem[""] = root;
-            var idCounter = 1;
-
-            foreach (var result in _searchResults)
-            {
-                var assetPath = AssetDatabase.GetAssetPath(result.prefab);
-                var relativePath = assetPath.Replace("Assets/Resources/CMS/Prefabs/", "").Replace(".prefab", "");
-                var parts = relativePath.Split('/');
-
-                var currentPath = "";
-                var parent = root;
-
-                for (var i = 0; i < parts.Length; i++)
-                {
-                    var part = parts[i];
-                    currentPath = string.IsNullOrEmpty(currentPath) ? part : $"{currentPath}/{part}";
-
-                    if (!pathToItem.TryGetValue(currentPath, out var item))
-                    {
-                        var isLeaf = i == parts.Length - 1;
-
-                        item = isLeaf
-                            ? new EntityTreeViewItem
-                            {
-                                id = idCounter++,
-                                depth = i,
-                                displayName = result.displayName,
-                                prefab = result.prefab,
-                                entity = result.entity,
-                                sprite = result.sprite
-                            }
-                            : new TreeViewItem
-                            {
-                                id = idCounter++,
-                                depth = i,
-                                displayName = part
-                            };
-
-                        pathToItem[currentPath] = item;
-
-                        parent.children ??= new List<TreeViewItem>();
-                        parent.children.Add(item);
-                    }
-
-                    parent = item;
-                }
-            }
-            
-            root.children ??= new List<TreeViewItem>();
-            
-            SetupDepthsFromParentsAndChildren(root);
-            return root;
-        }
-
-        protected override void RowGUI(RowGUIArgs args)
-        {
-            var indent = GetContentIndent(args.item);
-            var rowRect = args.rowRect;
-            var iconPadding = 4f;
-            var iconSize = rowHeight - 4f;
-            var iconOffset = indent;
-
-            if (args.item is EntityTreeViewItem entityItem)
-            {
-                var sprite = entityItem.sprite;
-                var iconRect = new Rect(rowRect.x + iconOffset, rowRect.y + 2f, iconSize, iconSize);
-
-                if (sprite != null)
-                {
-                    GUI.DrawTextureWithTexCoords(
-                        iconRect,
-                        sprite.texture,
-                        new Rect(
-                            sprite.textureRect.x / sprite.texture.width,
-                            sprite.textureRect.y / sprite.texture.height,
-                            sprite.textureRect.width / sprite.texture.width,
-                            sprite.textureRect.height / sprite.texture.height
-                        )
-                    );
-                }
-
-                var labelRect = new Rect(iconRect.xMax + iconPadding, rowRect.y, rowRect.width, rowHeight);
-                EditorGUI.LabelField(labelRect, args.label);
-            }
-            else
-            {
-                var folderIcon = EditorGUIUtility.IconContent("Folder Icon").image;
-                var iconRect = new Rect(rowRect.x + indent, rowRect.y + (rowHeight - iconSize) / 2, iconSize, iconSize);
-                GUI.DrawTexture(iconRect, folderIcon, ScaleMode.ScaleToFit);
-
-                var labelRect = new Rect(iconRect.xMax + iconPadding, rowRect.y, rowRect.width, rowHeight);
-                EditorGUI.LabelField(labelRect, args.label);
-            }
-        }
-
-        protected override void SingleClickedItem(int id)
-        {
-            var clickedItem = FindItem(id, rootItem);
-
-            if (clickedItem is EntityTreeViewItem entityItem)
-            {
-                EditorGUIUtility.PingObject(entityItem.prefab);
-            }
-        }
-
-        protected override void DoubleClickedItem(int id)
-        {
-            var clickedItem = FindItem(id, rootItem);
-
-            if (clickedItem is EntityTreeViewItem entityItem)
-            {
-                Selection.activeObject = entityItem.prefab;
-                EditorUtility.OpenPropertyEditor(entityItem.entity);
-            }
-        }
-    }
-    
-    public class CMSEntityInspectorWindow : EditorWindow
-    {
-        private UnityEngine.Object _target;
-        private CMSEntityExplorer _explorer;
-        private int _selectedId;
-        private Vector2 _scrollPosition;
-        
-        public static void ShowWindow(UnityEngine.Object target, Rect anchorRect, CMSEntityExplorer explorer, int selectedId)
-        {
-            var window = CreateInstance<CMSEntityInspectorWindow>();
-            window._target = target;
-            window._explorer = explorer;
-            window._selectedId = selectedId;
-            window.titleContent = new GUIContent(target.name);
-            window.position = new Rect(anchorRect.xMin - 400 - 10, anchorRect.yMin, 600, anchorRect.height);
-            window.ShowUtility();
-            window.Focus();
-        }
-
-        private void OnGUI()
-        {
-            if (_target == null)
-            {
-                EditorGUILayout.HelpBox("No target to inspect.", MessageType.Warning);
-                return;
-            }
-
-            var e = Event.current;
-            if (e.type == EventType.KeyDown && e.keyCode == KeyCode.Escape)
-            {
-                Close();
-                GUIUtility.ExitGUI();
-                return;
-            }
-
-            _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
-    
-            EditorGUI.indentLevel = 0;
-            var editor = UnityEditor.Editor.CreateEditor(_target);
-            editor.OnInspectorGUI();
-            
-            EditorGUILayout.EndScrollView();
-        }
-        
-        private void OnDestroy()
-        {
-            if (_explorer != null && _selectedId != -1)
-            {
-                _explorer.FocusTreeViewAndReselect(_selectedId);
-            }
-        }
-    }
-
-    public class EntityTreeViewItem : TreeViewItem
-    {
-        public GameObject prefab;
-        public CMSEntityPfb entity;
-        public Sprite sprite;
-    }
-
     public class SearchResult
     {
         public GameObject prefab;
         public CMSEntityPfb entity;
         public string displayName;
         public Sprite sprite;
-    }
-    
-    [CustomEditor(typeof(CMSEntityPfb))]
-    public class CMSEntityPfbEditor : UnityEditor.Editor
-    {
-        public override void OnInspectorGUI()
-        {
-            var entity = (CMSEntityPfb)target;
-            var entitySprite = entity.GetSprite();
-
-            if (entitySprite != null)
-            {
-                GUILayout.Label("Entity Icon", EditorStyles.boldLabel);
-
-                var pixelsPerUnit = entitySprite.pixelsPerUnit;
-                var width = entitySprite.rect.width / pixelsPerUnit;
-                var height = entitySprite.rect.height / pixelsPerUnit;
-                var aspectRatio = width / height;
-                var previewHeight = 124f;
-                var previewWidth = previewHeight * aspectRatio;
-
-                var spriteRect = GUILayoutUtility.GetRect(previewWidth, previewHeight, GUILayout.ExpandWidth(false));
-                var uv = new Rect(
-                    entitySprite.textureRect.x / entitySprite.texture.width,
-                    entitySprite.textureRect.y / entitySprite.texture.height,
-                    entitySprite.textureRect.width / entitySprite.texture.width,
-                    entitySprite.textureRect.height / entitySprite.texture.height
-                );
-
-                GUI.DrawTextureWithTexCoords(spriteRect, entitySprite.texture, uv);
-            }
-
-            DrawDefaultInspector();
-        }
     }
 }

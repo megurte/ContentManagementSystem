@@ -37,8 +37,7 @@ namespace Editor.CMSEditor
                     continue;
                 }
 
-                var relativePath = path.Substring("Assets/Resources/".Length);
-                var id = relativePath.Substring(0, relativePath.Length - ".prefab".Length);
+                var id = FormatEntityId(path);
 
                 if (idProp.stringValue == id) continue;
             
@@ -50,6 +49,20 @@ namespace Editor.CMSEditor
 
             AssetDatabase.SaveAssets();
             Debug.Log($"[CMS] Updated {updatedCount} prefab ID(s).");
+        }
+
+        public static string FormatEntityId(string path)
+        {
+            var relativePath = path.Substring("Assets/Resources/".Length);
+            return relativePath.Substring(0, relativePath.Length - ".prefab".Length);
+        }
+
+        public static void UpdateEntityId(CMSEntityPfb entity, string path)
+        {
+            var so = new SerializedObject(entity);
+            var idProp = so.FindProperty("idCMS");
+            idProp.stringValue = FormatEntityId(path);
+            so.ApplyModifiedProperties();
         }
     }
 }
