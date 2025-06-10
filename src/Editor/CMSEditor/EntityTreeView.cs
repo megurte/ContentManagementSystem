@@ -43,6 +43,12 @@ namespace src.Editor.CMSEditor
         {
             return FindItem(id, rootItem) as EntityTreeViewItem;
         }
+        
+        public CMSEntityPfb GetSelectedEntity()
+        {
+            var id = GetSelection().FirstOrDefault();
+            return GetEntityItemById(id)?.entity;
+        }
 
         protected override void KeyEvent()
         {
@@ -249,10 +255,12 @@ namespace src.Editor.CMSEditor
         
         private void HandleCancelRenameKey()
         {
-            if (Event.current.keyCode == KeyCode.Escape)
+            var evt = Event.current;
+
+            if (evt.type == EventType.KeyDown && evt.keyCode == KeyCode.Escape)
             {
                 _renameId = -1;
-                Event.current.Use();
+                evt.Use();
             }
         }
                 

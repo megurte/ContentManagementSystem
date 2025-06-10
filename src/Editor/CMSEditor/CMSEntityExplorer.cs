@@ -1,6 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using src.Editor.CMSEditor;
+using src.Editor.CMSEditor.Templates;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine;
@@ -15,6 +18,7 @@ namespace Editor.CMSEditor
     
     public class CMSEntityExplorer : EditorWindow
     {
+        private const string TemplatesFolder = "Assets/Resources/CMS/Templates";
         private const string SearchPath = "Assets/Resources";
         private const string SearchControlName = "CMSSearchField";
         private bool _focusFirstItemNextFrame;
@@ -25,6 +29,7 @@ namespace Editor.CMSEditor
         private Vector2 _scrollPosition;
         private GUIStyle _clearButtonStyle;
         private ViewModeExplorer _viewMode;
+        private GenericMenu _templateMenu;
 
         [MenuItem("CMS/CMS Entity Explorer #&c")]
         public static void ShowWindow()
@@ -40,11 +45,12 @@ namespace Editor.CMSEditor
             
             _viewMode = ViewModeExplorer.DefaultView;
             
-            if (_treeViewState == null)
-                _treeViewState = new TreeViewState();
+            _treeViewState ??= new TreeViewState();
 
-            _treeView = new EntityTreeView(_treeViewState);
-            _treeView.focusSearchFieldRequest = FocusSearchBar;
+            _treeView = new EntityTreeView(_treeViewState)
+            {
+                focusSearchFieldRequest = FocusSearchBar
+            };
             PerformSearch();
             
             _focusFirstItemNextFrame = true;
@@ -77,7 +83,6 @@ namespace Editor.CMSEditor
             if (firstItem != null)
             {
                 FocusItem(firstItem.id);
-                Event.current.Use();
             }
         }
 
@@ -163,7 +168,21 @@ namespace Editor.CMSEditor
             {
                 DeleteSelectedEntity();
             }
+            
+            if (GUILayout.Button("Use Template", EditorStyles.toolbarDropDown, GUILayout.Width(100)))
+            {
+                BuildTemplateMenu();
+            }
 
+            if (GUILayout.Button("Save Template", EditorStyles.toolbarButton, GUILayout.Width(100)))
+            {
+                var selectedItem = _treeView.GetSelectedEntity();
+                if (selectedItem != null)
+                {
+                    SaveTemplate(selectedItem);
+                }
+            }
+            
             EditorGUILayout.EndHorizontal();
         }
 
@@ -233,6 +252,106 @@ namespace Editor.CMSEditor
             AssetDatabase.DeleteAsset(assetPath);
             AssetDatabase.Refresh();
             PerformSearch();
+        }
+        
+        private void BuildTemplateMenu()
+        {
+            if (!Directory.Exists(TemplatesFolder))
+                Directory.CreateDirectory(TemplatesFolder);
+
+            var jsonFiles = Directory.GetFiles(TemplatesFolder, "*.json");
+
+            _templateMenu = new GenericMenu();
+
+            foreach (var file in jsonFiles)
+            {
+                var tempName = Path.GetFileNameWithoutExtension(file);
+                _templateMenu.AddItem(new GUIContent(tempName), false, () =>
+                {
+                    ApplyTemplateFromPath(file);
+                });
+            }
+
+            _templateMenu.ShowAsContext();
+        }
+        
+        private void ApplyTemplateFromPath(string path)
+        {
+            var json = File.ReadAllText(path);
+            var template = JsonUtility.FromJson<EntityTemplate>(json);
+            if (template == null) return;
+
+            var folder = "Assets/Resources/CMS";
+            var baseName = template.templateName;
+            var finalName = baseName;
+            var counter = 1;
+
+            while (AssetDatabase.LoadAssetAtPath<GameObject>($"{folder}/{finalName}.prefab") != null)
+            {
+                finalName = $"{baseName}{counter}";
+                counter++;
+            }
+
+            var go = new GameObject(finalName);
+            var entity = go.AddComponent<CMSEntityPfb>();
+            entity.name = finalName;
+            entity.Components = new List<EntityComponentDefinition>();
+
+            foreach (var ser in template.components)
+            {
+                var type = Type.GetType(ser.type);
+                if (type == null)
+                {
+                    Debug.LogWarning($"Unknown component type: {ser.type}");
+                    continue;
+                }
+
+                var instance = (EntityComponentDefinition)JsonUtility.FromJson(ser.jsonData, type);
+                entity.Components.Add(instance);
+            }
+
+            var prefabPath = $"{folder}/{finalName}.prefab";
+            CMSEntityIdSetter.UpdateEntityId(entity, prefabPath);
+
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, prefabPath);
+            EditorUtility.SetDirty(prefab);
+            DestroyImmediate(go);
+
+            AssetDatabase.Refresh();
+            PerformSearch();
+        }
+        
+        private void SaveTemplate(CMSEntityPfb entity)
+        {
+            if (!Directory.Exists(TemplatesFolder))
+                Directory.CreateDirectory(TemplatesFolder);
+
+            TemplateNamePopup.Show(templateName =>
+            {
+                var path = Path.Combine(TemplatesFolder, $"{templateName}.json");
+
+                var template = new EntityTemplate
+                {
+                    templateName = templateName,
+                    components = new List<SerializableComponent>()
+                };
+                
+                foreach (var component in entity.Components)
+                {
+                    var type = component.GetType();
+                    var json = JsonUtility.ToJson(component);
+
+                    template.components.Add(new SerializableComponent
+                    {
+                        type = type.AssemblyQualifiedName,
+                        jsonData = json
+                    });
+                }
+
+                var jsonResult = JsonUtility.ToJson(template, true);
+                File.WriteAllText(path, jsonResult);
+                AssetDatabase.Refresh();
+            });
         }
 
         private void HandleSelectFirstItemAfterSearch()
