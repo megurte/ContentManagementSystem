@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using src.Editor.CMSEditor.Utils;
 using UnityEditor;
 using UnityEngine;
 
@@ -35,8 +36,8 @@ namespace Editor.CMSEditor
 
         private void OnGUI()
         {
-            GUILayout.BeginVertical(EditorStyles.helpBox);
-    
+            this.DrawWindowBorder();
+            
             EditorGUILayout.BeginHorizontal();
             GUI.SetNextControlName("SearchField");
             _searchQuery = EditorGUILayout.TextField(_searchQuery, GUI.skin.FindStyle("ToolbarSearchTextField"));
@@ -54,8 +55,6 @@ namespace Editor.CMSEditor
                 DrawSelectableRow(prefab);
 
             EditorGUILayout.EndScrollView();
-
-            GUILayout.EndVertical();
         }
 
         private void DrawSelectableRow(CMSEntityPfb prefab)
@@ -74,7 +73,7 @@ namespace Editor.CMSEditor
             }
 
             var labelRect = new Rect(rect.x + 8, rect.y, rect.width - 8, rect.height);
-            EditorGUI.LabelField(labelRect, prefab.name);
+            EditorGUI.LabelField(labelRect, prefab.name, style: GlobalStyles.TemplateStyle);
 
             // Handle mouse click
             if (Event.current.type == EventType.MouseDown && rect.Contains(Event.current.mousePosition))
@@ -83,6 +82,8 @@ namespace Editor.CMSEditor
                 Close();
                 Event.current.Use();
             }
+            
+            this.DrawLineBetween();
         }
         
         private void OnDestroy()

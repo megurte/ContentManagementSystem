@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Editor.CMSEditor;
 using UnityEditor;
@@ -13,6 +14,12 @@ namespace src.Editor.CMSEditor
         public GameObject prefab;
         public CMSEntityPfb entity;
         public Sprite sprite;
+        public string path;
+    }
+    
+    public class EntityTreeViewFolder : TreeViewItem
+    {
+        public string path;
     }
     
     public class EntityTreeView : TreeView
@@ -42,6 +49,11 @@ namespace src.Editor.CMSEditor
         public EntityTreeViewItem GetEntityItemById(int id)
         {
             return FindItem(id, rootItem) as EntityTreeViewItem;
+        }
+        
+        public TreeViewItem GetItemById(int id)
+        {
+            return FindItem(id, rootItem);
         }
         
         public CMSEntityPfb GetSelectedEntity()
@@ -159,13 +171,15 @@ namespace src.Editor.CMSEditor
                                 displayName = result.displayName,
                                 prefab = result.prefab,
                                 entity = result.entity,
-                                sprite = result.sprite
+                                sprite = result.sprite,
+                                path = assetPath
                             }
-                            : new TreeViewItem
+                            : new EntityTreeViewFolder
                             {
                                 id = idCounter++,
                                 depth = i,
-                                displayName = part
+                                displayName = part,
+                                path = $"{Path.GetDirectoryName(assetPath)}"
                             };
 
                         pathToItem[currentPath] = item;

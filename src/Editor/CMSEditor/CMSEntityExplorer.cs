@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using src.Editor.CMSEditor;
 using src.Editor.CMSEditor.Templates;
+using src.Editor.CMSEditor.Utils;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine;
@@ -18,7 +19,7 @@ namespace Editor.CMSEditor
     
     public class CMSEntityExplorer : EditorWindow
     {
-        private const string TemplatesFolder = "Assets/Resources/CMS/Templates";
+        public const string TemplatesFolder = "Assets/Resources/CMS/Templates";
         private const string SearchPath = "Assets/Resources";
         private const string SearchControlName = "CMSSearchField";
         private bool _focusFirstItemNextFrame;
@@ -27,9 +28,7 @@ namespace Editor.CMSEditor
         private TreeViewState _treeViewState;
         private EntityTreeView _treeView;
         private Vector2 _scrollPosition;
-        private GUIStyle _clearButtonStyle;
         private ViewModeExplorer _viewMode;
-        private GenericMenu _templateMenu;
 
         [MenuItem("CMS/CMS Entity Explorer #&c")]
         public static void ShowWindow()
@@ -99,18 +98,6 @@ namespace Editor.CMSEditor
                 return;
             }
 
-            if (_clearButtonStyle == null)
-            {
-                _clearButtonStyle = new GUIStyle(EditorStyles.miniButton)
-                {
-                    fontSize = 12,
-                    alignment = TextAnchor.MiddleCenter,
-                    padding = new RectOffset(0, 0, 0, 0),
-                    fixedWidth = 16,
-                    fixedHeight = 16
-                };
-            }
-
             EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
             //GUILayout.Label("CMS Entity Explorer", EditorStyles.boldLabel);
             DrawToolButtons();
@@ -124,7 +111,7 @@ namespace Editor.CMSEditor
             
             if (!string.IsNullOrEmpty(_searchQuery))
             {
-                if (GUILayout.Button("×", _clearButtonStyle, GUILayout.Width(16)))
+                if (GUILayout.Button("×", GlobalStyles.ClearButtonStyle, GUILayout.Width(16)))
                 {
                     newSearch = "";
                     GUI.FocusControl(null);
@@ -256,23 +243,14 @@ namespace Editor.CMSEditor
         
         private void BuildTemplateMenu()
         {
-            if (!Directory.Exists(TemplatesFolder))
-                Directory.CreateDirectory(TemplatesFolder);
-
-            var jsonFiles = Directory.GetFiles(TemplatesFolder, "*.json");
-
-            _templateMenu = new GenericMenu();
-
-            foreach (var file in jsonFiles)
+            var guiRect = GUILayoutUtility.GetLastRect();
+            var globalPos = GUIUtility.GUIToScreenPoint(new Vector2(guiRect.x, guiRect.yMax));
+            var rect = new Rect(globalPos.x + 90, globalPos.y + 20, guiRect.width, 0);
+            TemplateDropdownWindow.Show(rect, templateName =>
             {
-                var tempName = Path.GetFileNameWithoutExtension(file);
-                _templateMenu.AddItem(new GUIContent(tempName), false, () =>
-                {
-                    ApplyTemplateFromPath(file);
-                });
-            }
-
-            _templateMenu.ShowAsContext();
+                var path = Path.Combine(TemplatesFolder, $"{templateName}.json");
+                ApplyTemplateFromPath(path);
+            });
         }
         
         private void ApplyTemplateFromPath(string path)
@@ -281,7 +259,7 @@ namespace Editor.CMSEditor
             var template = JsonUtility.FromJson<EntityTemplate>(json);
             if (template == null) return;
 
-            var folder = "Assets/Resources/CMS";
+            var folder = GetTargetFolderOrDefault();
             var baseName = template.templateName;
             var finalName = baseName;
             var counter = 1;
@@ -319,6 +297,28 @@ namespace Editor.CMSEditor
 
             AssetDatabase.Refresh();
             PerformSearch();
+        }
+        
+        private string GetTargetFolderOrDefault()
+        {
+            var id = _treeView.GetSelection().FirstOrDefault();
+            var item = _treeView.GetItemById(id);
+            if (item != null)
+            {
+                if (item is EntityTreeViewItem entity)
+                {
+                    if (entity.prefab != null) 
+                        return Path.GetDirectoryName(AssetDatabase.GetAssetPath(entity.prefab));
+                }
+
+                if (item is EntityTreeViewFolder folder)
+                {
+                    if (!string.IsNullOrEmpty(folder.path) && AssetDatabase.IsValidFolder(folder.path)) 
+                        return folder.path;
+                }
+            }
+
+            return "Assets/Resources/CMS";
         }
         
         private void SaveTemplate(CMSEntityPfb entity)

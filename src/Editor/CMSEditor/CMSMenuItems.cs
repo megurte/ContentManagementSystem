@@ -1,3 +1,4 @@
+using src.Editor.CMSEditor.Utils;
 using UnityEditor;
 
 namespace Editor.CMSEditor
@@ -7,8 +8,7 @@ namespace Editor.CMSEditor
         [MenuItem("CMS/Reload")]
         public static void CMSReload()
         {
-            CMS.Unload();
-            CMS.Init();
+            CMSHelpers.ReloadCMS();
         }
     }
 }
