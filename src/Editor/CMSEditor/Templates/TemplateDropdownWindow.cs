@@ -32,10 +32,10 @@ namespace src.Editor.CMSEditor.Templates
             var window = CreateInstance<TemplateDropdownWindow>();
             window._onTemplateSelected = onTemplateSelected;
             window.LoadTemplates();
-            ShowWithSize(alignTo, window);
+            Resize(alignTo, window);
         }
 
-        private static void ShowWithSize(Rect alignTo, TemplateDropdownWindow window)
+        private static void Resize(Rect alignTo, TemplateDropdownWindow window)
         {
             _alignTo = alignTo;
             var height = CalculateWindowSize(window);
@@ -70,7 +70,7 @@ namespace src.Editor.CMSEditor.Templates
         {
             this.DrawWindowBorder();
 
-            if (_entries == null) return;
+            if (HandleTemplateAbsence()) return;     
             
             _scroll = EditorGUILayout.BeginScrollView(_scroll);
 
@@ -92,6 +92,25 @@ namespace src.Editor.CMSEditor.Templates
             }
 
             EditorGUILayout.EndScrollView();
+        }
+
+        private bool HandleTemplateAbsence()
+        {
+            if (_entries == null || _entries.Count == 0)
+            {
+                GUILayout.Space(2);
+                var labelStyle = new GUIStyle(EditorStyles.label)
+                {
+                    alignment = TextAnchor.MiddleCenter,
+                    fontStyle = FontStyle.Italic,
+                    normal = {textColor = new Color(0.6f, 0.6f, 0.6f)}
+                };
+
+                GUILayout.Label("No saved templates", labelStyle, GUILayout.ExpandHeight(true));
+                return true;
+            }
+
+            return false;
         }
 
         private void HandleMouseClick(bool deletePressed, Rect rowRect, TemplateEntry entry)
