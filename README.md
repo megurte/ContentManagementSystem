@@ -8,6 +8,10 @@ Based on [XK's repository](https://github.com/koster/CMS), with bug fixes and an
 * Flexible structure to support different content types (e.g. characters, items, dialogues)
 * Search and filtering tools for quickly locating specific entries
 * Well-organized runtime and editor separation (Runtime/, Editor/)
+* Navigation on CMSEntityPfb searching
+  
+![image](https://github.com/user-attachments/assets/5eb44be3-80a9-4a54-8382-9f50db7a0fd8)
+![image](https://github.com/user-attachments/assets/b1ce5a48-a714-4e07-90f4-478eca409684)
 
 ## Installation
 1. Download [latest release](https://github.com/megurte/ContentManagementSystem/releases/latest) and install to your project as package 
@@ -20,7 +24,7 @@ Or use UPM installation:
 3. Paste link to package: 
 
 ```
-https://github.com/megurte/ContentManagementSystem.git?path=/src#1.3.0
+https://github.com/megurte/ContentManagementSystem.git?path=/src#1.4.0
 ```
 
 ## Usage
@@ -41,6 +45,19 @@ Use the provided editor windows to add, remove, and modify entity data.
 The UI supports live filtering and search to navigate large datasets efficiently.
 
 ![image](https://github.com/user-attachments/assets/6d6a4997-a50b-475a-a8ef-8377b716d1cd)
+
+## CMS Entity Explorer
+The CMS Explorer provides an in-Editor interface for managing your CMS entities with the following features:
+
+* Add / Delete Entities directly from the tree view
+* Rename Entities inline (F2 support)
+* Templates: save any entity as a reusable JSON-based template and instantiate new entities from it with all component data preserved
+* Smart folder targeting when creating new prefabs (based on selected entity or folder)
+
+All functionality is integrated into a single streamlined window designed to speed up content iteration and reduce manual asset handling.
+
+![image](https://github.com/user-attachments/assets/f24f7fe8-e1e0-4e4b-90a3-4e9780d16b9b)
+
 
 ## Game Integration
 
