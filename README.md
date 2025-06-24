@@ -33,7 +33,7 @@ https://github.com/megurte/ContentManagementSystem.git?path=/src#1.4.0
 Define new entities that represent your data structure, such as characters, items, or dialogs.  
 Each entity is a data model that can be edited via the provided editor UI.
 
-To initialize CMS and load all entities use `CMS.Init()` command when game launches before any interaction with CMS.
+To initialize CMS and load all entities use `CMS.Init()` command when game launches before any interaction with CMS. Or use `CMSHelpers.ReloadCMS()` to complitely realod data in CMS.
 
 CMS provides you:
 * **CMSEntity** - base class for defining game entities in code
