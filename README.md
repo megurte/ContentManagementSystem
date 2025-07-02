@@ -102,6 +102,7 @@ var concreteDataModel = CMS.Get<CMSEntity>(id); // ID is a path to your data mod
 if (bossEnemy.Is<TagSampleBehaviour>(out var behav)
   behav.Initialize();
 ```
+In case of abstraction use `CMS.GetAbstract<T>()` or `CMS.GetInterface<T>()`. If you want seporate instance use DeepCoty() function.
 
 ### Example of logic component definition
 ```csharp
