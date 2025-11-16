@@ -7,6 +7,7 @@ using UnityEngine;
 
 namespace Editor.CMSEditor
 {
+    // Legacy
     public class CMSSelectorPopup : EditorWindow
     {
         private static CMSSelectorPopup _currentWindow;
@@ -41,7 +42,7 @@ namespace Editor.CMSEditor
             EditorGUILayout.BeginHorizontal();
             GUI.SetNextControlName("SearchField");
             _searchQuery = EditorGUILayout.TextField(_searchQuery, GUI.skin.FindStyle("ToolbarSearchTextField"));
-            if (GUILayout.Button("X", GUILayout.Width(20)))
+            if (GUILayout.Button("×", GlobalStyles.ClearButtonStyle))
                 Close();
             EditorGUILayout.EndHorizontal();
 

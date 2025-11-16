@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Runtime;
+using UnityEditor;
 using UnityEngine;
 
 public class CMSEntityPfb : MonoBehaviour
@@ -33,9 +34,36 @@ public class CMSEntityPfb : MonoBehaviour
             {
                 case TagSprite tagSprite when tagSprite.sprite != null:
                     return tagSprite.sprite;
+                case TagMesh tagMesh:
+                    if (tagMesh.TryGetMesh(out var mesh, out var go))
+                        return CreateSpritePreviewFromMesh(go);
+                    break;
             }
         }
         
         return null;
+    }
+    
+    private static Sprite CreateSpritePreviewFromMesh(GameObject ownerGO)
+    {
+#if UNITY_EDITOR
+        if (ownerGO == null)
+            return null;
+
+        var preview = AssetPreview.GetAssetPreview(ownerGO);
+
+        if (preview == null)
+        {
+            if (!AssetPreview.IsLoadingAssetPreview(ownerGO.GetInstanceID()))
+                preview = AssetPreview.GetMiniThumbnail(ownerGO);
+        }
+
+        if (preview == null)
+            return null;
+
+        return Sprite.Create(preview, new Rect(0, 0, preview.width, preview.height), new Vector2(0.5f, 0.5f));
+#else
+    return null;
+#endif
     }
 }

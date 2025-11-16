@@ -11,26 +11,39 @@ namespace src.Editor.CMSEditor
             var entity = (CMSEntityPfb)target;
             var entitySprite = entity.GetSprite();
 
+            GUILayout.Label("Entity Icon", EditorStyles.boldLabel);
+
+            var previewHeight = 124f;
+            var aspectRatio = 1f;
+
             if (entitySprite != null)
             {
-                GUILayout.Label("Entity Icon", EditorStyles.boldLabel);
+                var ppu = entitySprite.pixelsPerUnit;
+                var width = entitySprite.rect.width / ppu;
+                var height = entitySprite.rect.height / ppu;
+                if (height > 0.0001f)
+                    aspectRatio = width / height;
+            }
 
-                var pixelsPerUnit = entitySprite.pixelsPerUnit;
-                var width = entitySprite.rect.width / pixelsPerUnit;
-                var height = entitySprite.rect.height / pixelsPerUnit;
-                var aspectRatio = width / height;
-                var previewHeight = 124f;
-                var previewWidth = previewHeight * aspectRatio;
+            var previewWidth = previewHeight * aspectRatio;
 
-                var spriteRect = GUILayoutUtility.GetRect(previewWidth, previewHeight, GUILayout.ExpandWidth(false));
+            var spriteRect = GUILayoutUtility.GetRect(
+                previewWidth,
+                previewHeight,
+                GUILayout.ExpandWidth(false)
+            );
+
+            if (entitySprite != null)
+            {
+                var tex = entitySprite.texture;
                 var uv = new Rect(
-                    entitySprite.textureRect.x / entitySprite.texture.width,
-                    entitySprite.textureRect.y / entitySprite.texture.height,
-                    entitySprite.textureRect.width / entitySprite.texture.width,
-                    entitySprite.textureRect.height / entitySprite.texture.height
+                    entitySprite.textureRect.x / tex.width,
+                    entitySprite.textureRect.y / tex.height,
+                    entitySprite.textureRect.width / tex.width,
+                    entitySprite.textureRect.height / tex.height
                 );
 
-                GUI.DrawTextureWithTexCoords(spriteRect, entitySprite.texture, uv);
+                GUI.DrawTextureWithTexCoords(spriteRect, tex, uv);
             }
 
             DrawDefaultInspector();
