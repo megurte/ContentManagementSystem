@@ -10,8 +10,7 @@ Based on [XK's repository](https://github.com/koster/CMS), with bug fixes and an
 * Well-organized runtime and editor separation (Runtime/, Editor/)
 * Navigation on CMSEntityPfb searching
   
-![image](https://github.com/user-attachments/assets/5eb44be3-80a9-4a54-8382-9f50db7a0fd8)
-![image](https://github.com/user-attachments/assets/b1ce5a48-a714-4e07-90f4-478eca409684)
+<img width="370" height="233" alt="image" src="https://github.com/user-attachments/assets/fcd741e9-d7d5-4e23-b0b4-fbf4a1a4e40d" />
 
 ## Installation
 1. Download [latest release](https://github.com/megurte/ContentManagementSystem/releases/latest) and install to your project as package 
