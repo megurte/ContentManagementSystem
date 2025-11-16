@@ -24,7 +24,7 @@ Or use UPM installation:
 3. Paste link to package: 
 
 ```
-https://github.com/megurte/ContentManagementSystem.git?path=/src#1.4.1
+https://github.com/megurte/ContentManagementSystem.git?path=/src#1.5.0
 ```
 
 ## Usage
@@ -103,6 +103,12 @@ if (bossEnemy.Is<TagSampleBehaviour>(out var behav)
   behav.Initialize();
 ```
 In case of abstraction use `CMS.GetAbstract<T>()` or `CMS.GetInterface<T>()`. If you want seporate instance use DeepCoty() function.
+
+Code generation allows you to automatically generate constant paths for all CMS prefabs.
+To regenerate these constants, use the menu option under the CMS tab.
+After that, you can reference prefabs using strongly-typed constants: `CMS.Get<CMSEntity>(Models.MyNewUnit);`
+<img width="318" height="127" alt="image" src="https://github.com/user-attachments/assets/6703a517-f5b2-46ba-a19e-72e71e48e015" />
+
 
 ### Example of logic component definition
 ```csharp
