@@ -16,6 +16,9 @@ Based on [XK's repository](https://github.com/koster/CMS), with bug fixes and an
 1. Download [latest release](https://github.com/megurte/ContentManagementSystem/releases/latest) and install to your project as package 
 2. Package already contains SerializeReferenceExtensions `https://github.com/mackysoft/Unity-SerializeReferenceExtensions`. If you already have it, exclude the import of Mackysoft’s files
 3. Create inside of **Resource** folder **CMS** directory to fetch data from there
+4. Create new game object on scene and add new component **CMSEntityPfb**
+5. Save this game object as prefab to **CMS** folder
+6. Update it's ID by using menu **CMS -> Auto-Fill IDs**
 
 Or use UPM installation:
 1. Open Unity Package Manager (`Window > Package Manager`).
