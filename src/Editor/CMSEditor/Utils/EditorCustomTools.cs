@@ -22,5 +22,24 @@ namespace src.Editor.CMSEditor.Utils
             var lineRect = GUILayoutUtility.GetRect(1, 1, GUILayout.ExpandWidth(true));
             EditorGUI.DrawRect(lineRect, new Color(0.25f, 0.25f, 0.25f, 1f));
         }
+        
+        public static void DrawOpenPrefabButton(Rect rect, CMSEntityPfb prefab)
+        {
+            GUI.Box(rect, GUIContent.none, EditorStyles.helpBox);
+
+            var icon = GetPrefabIcon(prefab);
+            if (icon == null) return;
+
+            var pad = 2f;
+            var iconRect = new Rect(rect.x + pad, rect.y + pad, rect.width - pad * 2, rect.height - pad * 2);
+            GUI.DrawTexture(iconRect, icon, ScaleMode.ScaleToFit);
+        }
+
+        public static Texture GetPrefabIcon(CMSEntityPfb prefab)
+        {
+            var go = prefab != null ? prefab.gameObject : null;
+            if (go == null) return null;
+            return AssetPreview.GetMiniThumbnail(go) ?? EditorGUIUtility.ObjectContent(go, typeof(GameObject)).image;
+        }
     }
 }
