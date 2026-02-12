@@ -111,28 +111,46 @@ After that, you can reference prefabs using strongly-typed constants: `CMS.Get<C
 
 ### Example of logic component definition
 ```csharp
-    [Serializable]
-    public abstract class OpponentAI : EntityComponentDefinition
-    {
-        public abstract void TurnStartReasoning(CharacterState state, CharacterState target);
-    }
+[Serializable]
+public abstract class OpponentAI : EntityComponentDefinition
+{
+    public abstract void TurnStartReasoning(CharacterState state, CharacterState target);
+}
 
-    [Serializable]
-    public class TagCommonEnemyBehaviour : OpponentAI
+[Serializable]
+public class TagCommonEnemyBehaviour : OpponentAI
+{
+    public override void TurnStartReasoning(CharacterState state, CharacterState target)
     {
-        public override void TurnStartReasoning(CharacterState state, CharacterState target)
+        foreach (var dice in state.diceStates)
         {
-            foreach (var dice in state.diceStates)
-            {
-                var randomTargets = target.diceStates[Random.Range(0, target.diceStates.Count)];
-                var cardToPlay = state.availableCards[Random.Range(0, state.availableCards.Count)];
-                dice.TargetDice = randomTargets;
-                dice.CardToPlay = cardToPlay;
-                dice.view.As<DiceView>().SetReady(true);
-            }
+            var randomTargets = target.diceStates[Random.Range(0, target.diceStates.Count)];
+            var cardToPlay = state.availableCards[Random.Range(0, state.availableCards.Count)];
+            dice.TargetDice = randomTargets;
+            dice.CardToPlay = cardToPlay;
+            dice.view.As<DiceView>().SetReady(true);
         }
     }
+}
 ```
+
+### Field filtration
+To limit the selection in the CMSEntityPfb slot, there is a filtering mechanism based on the types that contain the components of the data model.
+
+```csharp
+[Serializable]
+public class TagMeleeWeapon: EntityComponentDefinition { }
+[Serializable]
+public class TagTwoHandSword : EntityComponentDefinition { }
+
+[Serializable]
+public class TagEnemyStartEquipment : EntityComponentDefinition
+{
+    [FilterTags(typeof(TagMeleeWeapon), typeof(TagTwoHandSword))]
+    public CMSEntityPfb weapon;
+}
+```
+<img width="561" height="302" alt="image" src="https://github.com/user-attachments/assets/d89b6e4e-6e82-49f2-b757-616f4c70a54b" />
 
 ## Feedback
 
