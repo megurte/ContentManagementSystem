@@ -30,15 +30,19 @@ namespace src.Editor.CMSEditor.Utils
                     {
                         if (c == null) return false;
                         var t = c.GetType();
-                        return allowed.Contains(t) && IsValidTagType(t);
+
+                        while (t != null)
+                        {
+                            if (allowed.Contains(t))
+                                return true;
+
+                            t = t.BaseType;
+                        }
+
+                        return c.GetType().GetInterfaces().Any(i => allowed.Contains(i));
                     });
                 })
                 .ToList();
-        }
-        
-        private static bool IsValidTagType(Type t)
-        {
-            return !t.IsAbstract && !t.IsGenericTypeDefinition;
         }
     }
 }
