@@ -1,4 +1,17 @@
 # Content Management System (CMS) for Unity
+  <a>
+    <img alt="Made With Unity" src="https://img.shields.io/badge/made%20with-Unity-57b9d3.svg?logo=Unity">
+  </a>
+  <a>
+    <img alt="License" src="https://img.shields.io/github/license/megurte/ContentManagementSystem?logo=github">
+  </a>
+  <a>
+    <img alt="Last Release" src="https://img.shields.io/github/v/release/megurte/ContentManagementSystem?include_prereleases&logo=Dropbox&color=yellow">
+  </a>
+  <a>
+    <img alt="GitHub stars" src="https://img.shields.io/github/stars/megurte/ContentManagementSystem?branch=main&label=Stars&logo=GitHub&logoColor=ffffff&labelColor=282828&color=informational&style=flat">
+  </a>
+
 A modular and lightweight Content Management System designed for Unity projects. This plugin enables developers to define, visualize, and edit structured game data directly within the Unity Editor through a clean and customizable interface.
 Based on [XK's repository](https://github.com/koster/CMS), with bug fixes and an explorer implementation.
 
