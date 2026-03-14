@@ -3,10 +3,12 @@
 <a>
   <img alt="Made With Unity" src="https://img.shields.io/badge/made%20with-Unity-57b9d3.svg?logo=Unity">
 </a>
-<a>
+
+<a href="https://github.com/megurte/ContentManagementSystem/releases/latest">
   <img alt="Last Release" src="https://img.shields.io/github/v/release/megurte/ContentManagementSystem?include_prereleases&logo=Dropbox&color=yellow">
 </a>
-<a>
+
+<a href="https://github.com/megurte/ContentManagementSystem/stargazers">
   <img alt="GitHub stars" src="https://img.shields.io/github/stars/megurte/ContentManagementSystem?branch=main&label=Stars&logo=GitHub&logoColor=ffffff&labelColor=282828&color=informational&style=flat">
 </a>
 </p>
