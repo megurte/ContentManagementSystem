@@ -1,7 +1,8 @@
 {
   "name": "CMSEditor",
   "references": [
-    "CMS"
+    "CMS",
+    "MackySoft.SerializeReferenceExtensions.Editor"
   ],
   "includePlatforms": [ "Editor" ]
 }
