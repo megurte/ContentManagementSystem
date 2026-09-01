@@ -23,11 +23,14 @@ Based on [XK's repository](https://github.com/koster/CMS), with bug fixes and an
 * Search and filtering tools for quickly locating specific entries
 * Well-organized runtime and editor separation (Runtime/, Editor/)
 * Navigation on CMSEntityPfb searching
+* Component-list entity inspector with per-component search, reordering and script shortcuts
+* Copy, paste and duplicate for `[SerializeReference]` components, nested graphs included
+* Content validation in one menu click (`CMS -> Validate`)
   
 <img width="370" height="233" alt="image" src="https://github.com/user-attachments/assets/fcd741e9-d7d5-4e23-b0b4-fbf4a1a4e40d" />
 
 ## Installation
-1. Download [latest release](https://github.com/megurte/ContentManagementSystem/releases/latest) and install to your project as package 
+1. Download the `.unitypackage` from the [latest release](https://github.com/megurte/ContentManagementSystem/releases/latest) and import it into your project 
 2. Package already contains SerializeReferenceExtensions `https://github.com/mackysoft/Unity-SerializeReferenceExtensions`. If you already have it, exclude the import of Mackysoft’s files
 3. Create inside of **Resource** folder **CMS** directory to fetch data from there
 4. Create new game object on scene and add new component **CMSEntityPfb**
@@ -40,7 +43,7 @@ Or use UPM installation:
 3. Paste link to package: 
 
 ```
-https://github.com/megurte/ContentManagementSystem.git?path=/src#1.5.21
+https://github.com/megurte/ContentManagementSystem.git?path=/src#1.6.0
 ```
 
 ## Usage
@@ -49,7 +52,7 @@ https://github.com/megurte/ContentManagementSystem.git?path=/src#1.5.21
 Define new entities that represent your data structure, such as characters, items, or dialogs.  
 Each entity is a data model that can be edited via the provided editor UI.
 
-To initialize CMS and load all entities use `CMS.Init()` command when game launches before any interaction with CMS. Or use `CMSHelpers.ReloadCMS()` to complitely realod data in CMS.
+To initialize CMS and load all entities use `CMS.Init()` command when game launches before any interaction with CMS. Or use `CMSHelpers.ReloadCMS()` to completely reload data in CMS.
 
 CMS provides you:
 * **CMSEntity** - base class for defining game entities in code
@@ -64,17 +67,46 @@ The UI supports live filtering and search to navigate large datasets efficiently
 
 ![image](https://github.com/user-attachments/assets/6d6a4997-a50b-475a-a8ef-8377b716d1cd)
 
+## Entity Inspector
+Selecting a CMSEntityPfb shows a header with its sprite and id, then one card per component:
+
+* Foldout, reorder arrows, remove button, and a button that opens the component script
+* A search field above the list filters components by type name, field name or field value
+* Components are added from a menu grouped by namespace, not from a raw type dropdown
+* Right-click a card to copy, duplicate or paste a component below it
+
+## SerializeReference Clipboard
+Any `[SerializeReference]` field or list element can be copied, pasted and duplicated through its
+right-click menu. The clipboard keeps the concrete type, so paste is only offered where the field
+can actually hold it, and nested managed-reference graphs survive the round trip.
+
+List elements also get paste-below, duplicate and delete, plus an inline delete button and a
+shortcut to the script of the currently selected type.
+
 ## CMS Entity Explorer
 The CMS Explorer provides an in-Editor interface for managing your CMS entities with the following features:
 
 * Add / Delete Entities directly from the tree view
 * Rename Entities inline (F2 support)
+* Duplicate (Ctrl+D), multi-select delete (Del) and undo of the last delete (Ctrl+Z), which restores the asset with its original guid
+* Right-click menu: open, rename, duplicate, delete, show in project, copy id
+* Search matches entity names, ids and component type names, and every row lists its components underneath
 * Templates: save any entity as a reusable JSON-based template and instantiate new entities from it with all component data preserved
 * Smart folder targeting when creating new prefabs (based on selected entity or folder)
 
 All functionality is integrated into a single streamlined window designed to speed up content iteration and reduce manual asset handling.
 
 ![image](https://github.com/user-attachments/assets/f24f7fe8-e1e0-4e4b-90a3-4e9780d16b9b)
+
+## Validation
+`CMS -> Validate` walks every entity under `Resources/CMS` in one pass and reports:
+
+* ids that no longer match the asset path, and ids shared by two entities — as errors
+* null components left in an entity — as errors
+* entities without a sprite — as warnings
+
+Worth running before a build, where a null component or a stale id otherwise surfaces as a null
+reference at runtime.
 
 
 ## Game Integration
@@ -107,18 +139,18 @@ public class CharacterEntity : CMSEntity
     }
 }
 ```
-### Example of access to entiries
+### Example of access to entities
 ```csharp
 var bossEnemy = CMS.GetAll<CMSEntity>().FirstOrDefault(ent => ent.Is<TagBossHard>());
 
 var tier1Cards = CMS.GetAll<CMSEntity>().Where(ent => ent.Get<TagRarity>().rarity == CardRarity.Tier1).ToList();
 
-var concreteDataModel = CMS.Get<CMSEntity>(id); // ID is a path to your data model that shows in CMSEntiryPfb component
+var concreteDataModel = CMS.Get<CMSEntity>(id); // ID is a path to your data model that shows in CMSEntityPfb component
 
-if (bossEnemy.Is<TagSampleBehaviour>(out var behav)
+if (bossEnemy.Is<TagSampleBehaviour>(out var behav))
   behav.Initialize();
 ```
-In case of abstraction use `CMS.GetAbstract<T>()` or `CMS.GetInterface<T>()`. If you want seporate instance use DeepCoty() function.
+In case of abstraction use `entity.GetAbstract<T>()` or `entity.IsAbstract<T>(out var value)`. If you want a separate instance use the `DeepCopy()` extension.
 
 Code generation allows you to automatically generate constant paths for all CMS prefabs.
 To regenerate these constants, use the menu option under the CMS tab.
