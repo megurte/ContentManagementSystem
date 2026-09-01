@@ -14,6 +14,12 @@ namespace Editor.CMSEditor
     {
         private static List<CMSEntityPfb> _cachedPrefabs;
 
+        [InitializeOnLoadMethod]
+        private static void RegisterCacheInvalidation()
+        {
+            EditorApplication.projectChanged += () => _cachedPrefabs = null;
+        }
+
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
         {
             EditorGUI.BeginProperty(position, label, property);

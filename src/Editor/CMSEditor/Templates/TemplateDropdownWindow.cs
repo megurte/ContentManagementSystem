@@ -26,6 +26,7 @@ namespace src.Editor.CMSEditor.Templates
         
         private List<TemplateEntry> _entries;
         private string _hoveredItem;
+        private static GUIStyle _emptyLabelStyle;
 
         public static void Show(Rect alignTo, Action<string> onTemplateSelected)
         {
@@ -99,14 +100,14 @@ namespace src.Editor.CMSEditor.Templates
             if (_entries == null || _entries.Count == 0)
             {
                 GUILayout.Space(2);
-                var labelStyle = new GUIStyle(EditorStyles.label)
+                _emptyLabelStyle ??= new GUIStyle(EditorStyles.label)
                 {
                     alignment = TextAnchor.MiddleCenter,
                     fontStyle = FontStyle.Italic,
                     normal = {textColor = new Color(0.6f, 0.6f, 0.6f)}
                 };
 
-                GUILayout.Label("No saved templates", labelStyle, GUILayout.ExpandHeight(true));
+                GUILayout.Label("No saved templates", _emptyLabelStyle, GUILayout.ExpandHeight(true));
                 return true;
             }
 

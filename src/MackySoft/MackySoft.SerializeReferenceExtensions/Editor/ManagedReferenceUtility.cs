@@ -42,5 +42,22 @@ namespace MackySoft.SerializeReferenceExtensions.Editor
 			return assembly.GetType(typeName.Substring(splitIndex + 1));
 		}
 
+		const string kArrayElementMarker = ".Array.data[";
+
+		public static bool IsArrayElement (string propertyPath) {
+			return propertyPath.EndsWith("]", StringComparison.Ordinal) && propertyPath.Contains(kArrayElementMarker);
+		}
+
+		public static int GetArrayElementIndex (string propertyPath) {
+			int open = propertyPath.LastIndexOf('[');
+			return int.Parse(propertyPath.Substring(open + 1, propertyPath.Length - open - 2));
+		}
+
+		public static SerializedProperty GetParentArrayProperty (SerializedProperty element) {
+			string path = element.propertyPath;
+			int marker = path.LastIndexOf(kArrayElementMarker, StringComparison.Ordinal);
+			return marker < 0 ? null : element.serializedObject.FindProperty(path.Substring(0, marker));
+		}
+
 	}
 }

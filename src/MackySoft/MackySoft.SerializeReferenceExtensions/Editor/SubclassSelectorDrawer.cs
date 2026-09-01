@@ -21,9 +21,17 @@ namespace MackySoft.SerializeReferenceExtensions.Editor
 		}
 
 		const int k_MaxTypePopupLineCount = 13;
-		
+		const float k_ScriptButtonWidth = 24f;
+		const float k_ScriptButtonSpacing = 2f;
+		const float k_ScriptIconSize = 17f;
+
 		static readonly GUIContent k_NullDisplayName = new GUIContent(TypeMenuUtility.k_NullDisplayName);
 		static readonly GUIContent k_IsNotManagedReferenceLabel = new GUIContent("The property type is not manage reference.");
+		static readonly GUIContent k_DeleteButtonContent = new GUIContent("×", "Delete element");
+
+		static GUIContent s_ScriptButtonContent;
+
+		public static float NextLabelWidth { get; set; }
 
 		readonly Dictionary<string,TypePopupCache> m_TypePopups = new Dictionary<string,TypePopupCache>();
 		readonly Dictionary<string,GUIContent> m_TypeNameCaches = new Dictionary<string,GUIContent>();
@@ -42,7 +50,16 @@ namespace MackySoft.SerializeReferenceExtensions.Editor
 
 				// NOTE: IndentedRect should be disabled as it causes extra indentation.
 				//foldoutLabelRect = EditorGUI.IndentedRect(foldoutLabelRect);
+
+				// NOTE: One-shot override, consumed here so it never leaks into nested subclass fields of the body.
+				float previousLabelWidth = EditorGUIUtility.labelWidth;
+				if (NextLabelWidth > 0f) {
+					EditorGUIUtility.labelWidth = NextLabelWidth;
+					NextLabelWidth = 0f;
+				}
+
 				Rect popupPosition = EditorGUI.PrefixLabel(foldoutLabelRect, label);
+				EditorGUIUtility.labelWidth = previousLabelWidth;
 
 #if UNITY_2021_3_OR_NEWER
 				// Override the label text with the ToString() of the managed reference.
@@ -56,6 +73,32 @@ namespace MackySoft.SerializeReferenceExtensions.Editor
 					}
 				}
 #endif
+
+				// Draw the "delete array element" button.
+				if (ManagedReferenceUtility.IsArrayElement(property.propertyPath))
+				{
+					Rect deleteButtonRect = new Rect(popupPosition.xMax - k_ScriptButtonWidth, popupPosition.y, k_ScriptButtonWidth, EditorGUIUtility.singleLineHeight);
+					popupPosition.width -= k_ScriptButtonWidth + k_ScriptButtonSpacing;
+
+					if (GUI.Button(deleteButtonRect, k_DeleteButtonContent, EditorStyles.miniButton))
+					{
+						DeleteArrayElement(property.serializedObject, property.propertyPath);
+					}
+				}
+
+				// Draw the "open script" button of the current managed reference type.
+				if (ManagedReferenceScriptLocator.TryGetScript(property.managedReferenceFullTypename, out MonoScript script))
+				{
+					Rect scriptButtonRect = new Rect(popupPosition.xMax - k_ScriptButtonWidth, popupPosition.y, k_ScriptButtonWidth, EditorGUIUtility.singleLineHeight);
+					popupPosition.width -= k_ScriptButtonWidth + k_ScriptButtonSpacing;
+
+					if (GUI.Button(scriptButtonRect, GetScriptButtonContent(script), EditorStyles.miniButton))
+					{
+						ManagedReferenceScriptLocator.Open(script);
+					}
+
+					DrawScriptIcon(scriptButtonRect, script);
+				}
 
 				// Draw the subclass selector popup.
 				if (EditorGUI.DropdownButton(popupPosition, GetTypeName(property), FocusType.Keyboard))
@@ -85,7 +128,14 @@ namespace MackySoft.SerializeReferenceExtensions.Editor
 					foldoutRect.x -= 12;
 #endif
 
-					property.isExpanded = EditorGUI.Foldout(foldoutRect, property.isExpanded, GUIContent.none, true);
+					// NOTE: Guarded write — an unconditional isExpanded assignment every repaint permanently degrades
+					// inspector performance for that object (per-object editor state grows per write).
+					bool wasExpanded = property.isExpanded;
+					bool nowExpanded = EditorGUI.Foldout(foldoutRect, wasExpanded, GUIContent.none, true);
+					if (nowExpanded != wasExpanded)
+					{
+						property.isExpanded = nowExpanded;
+					}
 				}
 
 				// Draw property if expanded.
@@ -130,6 +180,48 @@ namespace MackySoft.SerializeReferenceExtensions.Editor
 			}
 
 			EditorGUI.EndProperty();
+		}
+
+		// NOTE: Deleting mid-GUI-pass desyncs the layout of the surrounding list, so defer to the next editor tick.
+		static void DeleteArrayElement (SerializedObject serializedObject, string propertyPath) {
+			EditorApplication.delayCall += () => {
+				SerializedProperty element = serializedObject.FindProperty(propertyPath);
+				if (element == null) {
+					return;
+				}
+
+				SerializedProperty arrayProperty = ManagedReferenceUtility.GetParentArrayProperty(element);
+				if (arrayProperty == null) {
+					return;
+				}
+
+				serializedObject.Update();
+				arrayProperty.DeleteArrayElementAtIndex(ManagedReferenceUtility.GetArrayElementIndex(propertyPath));
+				serializedObject.ApplyModifiedProperties();
+			};
+		}
+
+		static GUIContent GetScriptButtonContent (MonoScript script) {
+			if (s_ScriptButtonContent == null) {
+				s_ScriptButtonContent = new GUIContent();
+			}
+			s_ScriptButtonContent.tooltip = $"Open {script.name}.cs";
+			return s_ScriptButtonContent;
+		}
+
+		static void DrawScriptIcon (Rect buttonRect, MonoScript script) {
+			if (Event.current.type != EventType.Repaint) {
+				return;
+			}
+
+			Texture icon = AssetPreview.GetMiniThumbnail(script);
+			if (icon == null) {
+				return;
+			}
+
+			float size = Mathf.Min(k_ScriptIconSize, Mathf.Min(buttonRect.width - 4f, buttonRect.height - 1f));
+			var iconRect = new Rect(buttonRect.center.x - (size * 0.5f), buttonRect.center.y - (size * 0.5f), size, size);
+			GUI.DrawTexture(iconRect, icon, ScaleMode.ScaleToFit);
 		}
 
 		PropertyDrawer GetCustomPropertyDrawer (SerializedProperty property)

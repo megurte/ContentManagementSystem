@@ -29,6 +29,9 @@ namespace Editor.CMSEditor
         private EntityTreeView _treeView;
         private Vector2 _scrollPosition;
         private ViewModeExplorer _viewMode;
+        private List<DeletedAssetCache> _lastDeletedCache = new();
+
+        public bool HasDeletedEntitiesToRestore => _lastDeletedCache.Count > 0;
 
         [MenuItem("CMS/CMS Entity Explorer #&c")]
         public static void ShowWindow()
@@ -64,11 +67,17 @@ namespace Editor.CMSEditor
         
         private void OnProjectChanged()
         {
-            if (_viewMode == ViewModeExplorer.DefaultView)
-            {
-                PerformSearch();
-                Repaint();
-            }
+            PerformSearch();
+            Repaint();
+        }
+
+        private void OnFocus()
+        {
+            if (_treeView == null)
+                return;
+
+            PerformSearch();
+            Repaint();
         }
 
         private void FocusSearchBar()
@@ -153,7 +162,7 @@ namespace Editor.CMSEditor
 
             if (GUILayout.Button("Delete", EditorStyles.toolbarButton, GUILayout.Width(50)))
             {
-                DeleteSelectedEntity();
+                DeleteSelectedEntities();
             }
             
             if (GUILayout.Button("Use Template", EditorStyles.toolbarDropDown, GUILayout.Width(100)))
@@ -219,28 +228,153 @@ namespace Editor.CMSEditor
             PerformSearch();
         }
 
-        private void DeleteSelectedEntity()
+        public void DuplicateSelectedEntity()
         {
             if (_treeView == null || _treeView.GetSelection().Count == 0)
                 return;
 
             var selectedId = _treeView.GetSelection()[0];
             var item = _treeView.GetEntityItemById(selectedId);
-
             if (item == null)
                 return;
 
-            var assetPath = AssetDatabase.GetAssetPath(item.prefab);
+            var srcPath = AssetDatabase.GetAssetPath(item.prefab);
+            var dstPath = BuildDuplicatePath(srcPath);
 
-            if (!EditorUtility.DisplayDialog("Delete Entity",
-                    $"Are you sure you want to delete '{item.prefab.name}'?", "Yes", "Cancel"))
+            if (!AssetDatabase.CopyAsset(srcPath, dstPath))
+            {
+                Debug.LogError($"Failed to duplicate '{srcPath}' to '{dstPath}'.");
+                return;
+            }
+
+            var go = AssetDatabase.LoadAssetAtPath<GameObject>(dstPath);
+            var entity = go.GetComponent<CMSEntityPfb>();
+            CMSEntityIdSetter.UpdateEntityId(entity, dstPath);
+            EditorUtility.SetDirty(go);
+            AssetDatabase.SaveAssets();
+
+            AssetDatabase.Refresh();
+            PerformSearch();
+            SelectEntityByPath(dstPath);
+        }
+
+        private static string BuildDuplicatePath(string srcPath)
+        {
+            var folder = Path.GetDirectoryName(srcPath);
+            var baseName = $"{Path.GetFileNameWithoutExtension(srcPath)} Copy";
+            var finalName = baseName;
+            var counter = 1;
+
+            while (AssetDatabase.LoadAssetAtPath<GameObject>($"{folder}/{finalName}.prefab") != null)
+            {
+                finalName = $"{baseName} {counter}";
+                counter++;
+            }
+
+            return $"{folder}/{finalName}.prefab";
+        }
+
+        private void SelectEntityByPath(string path)
+        {
+            var match = _treeView.GetRows()
+                .OfType<EntityTreeViewItem>()
+                .FirstOrDefault(row => AssetDatabase.GetAssetPath(row.prefab) == path);
+
+            if (match != null)
+                FocusTreeViewAndReselect(match.id);
+        }
+
+        public void DeleteSelectedEntities()
+        {
+            if (_treeView == null || _treeView.GetSelection().Count == 0)
                 return;
 
-            AssetDatabase.DeleteAsset(assetPath);
+            var items = GetSelectedEntityItems();
+            if (items.Count == 0)
+                return;
+
+            if (!ConfirmDelete(items))
+                return;
+
+            CacheAndDeleteEntities(items);
+
             AssetDatabase.Refresh();
             PerformSearch();
         }
-        
+
+        private List<EntityTreeViewItem> GetSelectedEntityItems()
+        {
+            return _treeView.GetSelection()
+                .Select(id => _treeView.GetEntityItemById(id))
+                .Where(item => item != null)
+                .ToList();
+        }
+
+        private static bool ConfirmDelete(List<EntityTreeViewItem> items)
+        {
+            var message = items.Count == 1
+                ? $"Are you sure you want to delete '{items[0].prefab.name}'?"
+                : $"Are you sure you want to delete {items.Count} entities?\n\n{string.Join("\n", items.Select(i => i.prefab.name))}";
+
+            return EditorUtility.DisplayDialog("Delete Entity", message, "Yes", "Cancel");
+        }
+
+        private void CacheAndDeleteEntities(List<EntityTreeViewItem> items)
+        {
+            _lastDeletedCache = new List<DeletedAssetCache>();
+
+            foreach (var item in items)
+            {
+                var path = AssetDatabase.GetAssetPath(item.prefab);
+                var metaPath = path + ".meta";
+
+                _lastDeletedCache.Add(new DeletedAssetCache
+                {
+                    path = path,
+                    prefabText = File.ReadAllText(path),
+                    metaText = File.ReadAllText(metaPath)
+                });
+
+                AssetDatabase.DeleteAsset(path);
+            }
+        }
+
+        public void RestoreLastDeleted()
+        {
+            if (_lastDeletedCache.Count == 0)
+                return;
+
+            foreach (var cached in _lastDeletedCache)
+            {
+                RestoreDeletedAsset(cached);
+            }
+
+            _lastDeletedCache.Clear();
+
+            AssetDatabase.Refresh();
+            PerformSearch();
+        }
+
+        private static void RestoreDeletedAsset(DeletedAssetCache cached)
+        {
+            var directory = Path.GetDirectoryName(cached.path);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                Directory.CreateDirectory(directory);
+
+            File.WriteAllText(cached.path, cached.prefabText);
+            File.WriteAllText(cached.path + ".meta", cached.metaText);
+
+            AssetDatabase.ImportAsset(cached.path);
+        }
+
+        private class DeletedAssetCache
+        {
+            public string path;
+            public string prefabText;
+            public string metaText;
+        }
+
+
         private void BuildTemplateMenu()
         {
             var guiRect = GUILayoutUtility.GetLastRect();
@@ -411,15 +545,17 @@ namespace Editor.CMSEditor
 
                     if (cmsEntity != null)
                     {
-                        if (string.IsNullOrEmpty(_searchQuery) ||
-                            (cmsEntity.name.ToLower().Contains(_searchQuery.ToLower())))
+                        var componentTypeNames = GetComponentTypeNames(cmsEntity);
+
+                        if (MatchesSearchQuery(cmsEntity, componentTypeNames))
                         {
                             results.Add(new SearchResult
                             {
                                 prefab = prefab,
                                 entity = cmsEntity,
                                 displayName = $"{prefab.name}",
-                                sprite = cmsEntity.GetSprite()
+                                sprite = cmsEntity.GetSprite(),
+                                componentTypeNames = componentTypeNames
                             });
                         }
                     }
@@ -428,6 +564,39 @@ namespace Editor.CMSEditor
 
             _viewMode = !string.IsNullOrEmpty(_searchQuery) ? ViewModeExplorer.SearchView : ViewModeExplorer.DefaultView;
             _treeView.SetSearchResults(results, _viewMode);
+        }
+
+        private static List<string> GetComponentTypeNames(CMSEntityPfb cmsEntity)
+        {
+            var names = new List<string>();
+            if (cmsEntity.Components == null)
+                return names;
+
+            foreach (var component in cmsEntity.Components)
+            {
+                if (component == null)
+                    continue;
+
+                names.Add(component.GetType().Name);
+            }
+
+            return names;
+        }
+
+        private bool MatchesSearchQuery(CMSEntityPfb cmsEntity, List<string> componentTypeNames)
+        {
+            if (string.IsNullOrEmpty(_searchQuery))
+                return true;
+
+            var query = _searchQuery.ToLower();
+
+            if (cmsEntity.name.ToLower().Contains(query))
+                return true;
+
+            if (cmsEntity.GetId()?.ToLower().Contains(query) == true)
+                return true;
+
+            return componentTypeNames.Any(typeName => typeName.ToLower().Contains(query));
         }
 
         public void OnDestroy()
@@ -442,5 +611,6 @@ namespace Editor.CMSEditor
         public CMSEntityPfb entity;
         public string displayName;
         public Sprite sprite;
+        public List<string> componentTypeNames;
     }
 }
