@@ -37,12 +37,15 @@ namespace Editor.CMSEditor
 
                     EditorGUILayout.BeginHorizontal();
 
-                    element.isExpanded = EditorGUILayout.Foldout(
-                        element.isExpanded,
+                    var wasExpanded = element.isExpanded;
+                    var nowExpanded = EditorGUILayout.Foldout(
+                        wasExpanded,
                         $"[{i}] {typeName}",
                         true,
                         EditorStyles.foldout
                     );
+                    if (nowExpanded != wasExpanded)
+                        element.isExpanded = nowExpanded;
 
                     if (GUILayout.Button("X", GUILayout.Width(20)))
                     {

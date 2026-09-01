@@ -1,23 +1,27 @@
-﻿using UnityEditor;
+using UnityEditor;
 using UnityEngine;
 
 namespace src.Editor.CMSEditor.Utils
 {
     public static class GlobalStyles
     {
-        public static GUIStyle HoverStyle => new GUIStyle(GUI.skin.box)
+        private static GUIStyle _hoverStyle;
+        private static GUIStyle _templateStyle;
+        private static GUIStyle _clearButtonStyle;
+
+        public static GUIStyle HoverStyle => _hoverStyle ??= new GUIStyle(GUI.skin.box)
         {
             normal = { background = Texture2D.grayTexture }
         };
-        
-        public static GUIStyle TemplateStyle =>  new GUIStyle(EditorStyles.label)
+
+        public static GUIStyle TemplateStyle => _templateStyle ??= new GUIStyle(EditorStyles.label)
         {
             alignment = TextAnchor.MiddleLeft,
             fontSize = 12,
             padding = new RectOffset(0, 0, 2, 0)
         };
-        
-        public static GUIStyle ClearButtonStyle => new GUIStyle(EditorStyles.miniButton)
+
+        public static GUIStyle ClearButtonStyle => _clearButtonStyle ??= new GUIStyle(EditorStyles.miniButton)
         {
             fontSize = 12,
             alignment = TextAnchor.MiddleCenter,
