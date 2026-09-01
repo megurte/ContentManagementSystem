@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -8,17 +9,38 @@ namespace Editor.CMSEditor
 {
     public class CMSSelectorDropdown : PopupWindowContent
     {
+        private const string EntitiesRoot = "Assets/Resources/CMS/";
+
         private readonly List<CMSEntityPfb> _allPrefabs;
         private readonly Action<CMSEntityPfb> _onSelected;
         private CMSEntityPfb _current;
         private string _search = "";
         private Vector2 _scroll;
         private int _keyboardIndex = -1;
+        private GUIStyle _subfolderStyle;
 
         private const float RowHeight = 20f;
         private const float IconSize = 18f;
         private const float Padding = 4f;
         private const float ToolbarHeight = 18f;
+
+        private GUIStyle SubfolderStyle
+        {
+            get
+            {
+                if (_subfolderStyle == null)
+                {
+                    var baseColor = EditorStyles.miniLabel.normal.textColor;
+                    _subfolderStyle = new GUIStyle(EditorStyles.miniLabel)
+                    {
+                        alignment = TextAnchor.MiddleRight,
+                        normal = { textColor = new Color(baseColor.r, baseColor.g, baseColor.b, 0.5f) }
+                    };
+                }
+
+                return _subfolderStyle;
+            }
+        }
 
         public static void Show(Rect activatorRect, List<CMSEntityPfb> prefabs, CMSEntityPfb current,
             Action<CMSEntityPfb> onSelected)
@@ -232,13 +254,34 @@ namespace Editor.CMSEditor
                 rowRect.y + (RowHeight - IconSize) * 0.5f,
                 IconSize,
                 IconSize);
-            var icon = GetPrefabIcon(prefab);
-            if (icon != null) GUI.DrawTexture(iconRect, icon, ScaleMode.ScaleToFit);
+            DrawEntityIcon(iconRect, prefab);
             var labelRect = new Rect(iconRect.xMax + Padding, rowRect.y, rowRect.width - iconRect.width - Padding * 2,
                 RowHeight);
 
             EditorGUI.LabelField(labelRect, prefab.name);
+            DrawSubfolderLabel(labelRect, prefab);
             HandleClick(rowIndex, rowRect, prefab);
+        }
+
+        private void DrawSubfolderLabel(Rect labelRect, CMSEntityPfb prefab)
+        {
+            var subfolder = GetSubfolder(prefab);
+            if (string.IsNullOrEmpty(subfolder)) return;
+
+            var subfolderRect = new Rect(labelRect.x, labelRect.y, labelRect.width - Padding, labelRect.height);
+            EditorGUI.LabelField(subfolderRect, subfolder, SubfolderStyle);
+        }
+
+        private static string GetSubfolder(CMSEntityPfb prefab)
+        {
+            var assetPath = AssetDatabase.GetAssetPath(prefab.gameObject);
+            if (string.IsNullOrEmpty(assetPath)) return "";
+
+            var directory = Path.GetDirectoryName(assetPath)?.Replace('\\', '/') ?? "";
+            if (!directory.StartsWith(EntitiesRoot, StringComparison.Ordinal)) return "";
+
+            var relative = directory.Substring(EntitiesRoot.Length);
+            return relative.Length == 0 ? "" : relative + "/";
         }
 
         private void HandleClick(int rowIndex, Rect rowRect, CMSEntityPfb prefab)
@@ -265,6 +308,48 @@ namespace Editor.CMSEditor
         {
             var go = prefab.gameObject;
             return AssetPreview.GetMiniThumbnail(go) ?? EditorGUIUtility.ObjectContent(go, typeof(GameObject)).image;
+        }
+
+        private static void DrawEntityIcon(Rect iconRect, CMSEntityPfb prefab)
+        {
+            var sprite = prefab.GetSprite();
+            if (sprite != null)
+            {
+                DrawAspectFitSprite(iconRect, sprite);
+                return;
+            }
+
+            var icon = GetPrefabIcon(prefab);
+            if (icon != null)
+                GUI.DrawTexture(iconRect, icon, ScaleMode.ScaleToFit);
+        }
+
+        private static void DrawAspectFitSprite(Rect iconRect, Sprite sprite)
+        {
+            var aspect = sprite.textureRect.width / sprite.textureRect.height;
+            var drawRect = iconRect;
+
+            if (aspect > 1f)
+            {
+                drawRect.height = iconRect.width / aspect;
+                drawRect.y += (iconRect.height - drawRect.height) * 0.5f;
+            }
+            else if (aspect < 1f)
+            {
+                drawRect.width = iconRect.height * aspect;
+                drawRect.x += (iconRect.width - drawRect.width) * 0.5f;
+            }
+
+            GUI.DrawTextureWithTexCoords(
+                drawRect,
+                sprite.texture,
+                new Rect(
+                    sprite.textureRect.x / sprite.texture.width,
+                    sprite.textureRect.y / sprite.texture.height,
+                    sprite.textureRect.width / sprite.texture.width,
+                    sprite.textureRect.height / sprite.texture.height
+                )
+            );
         }
     }
 }
