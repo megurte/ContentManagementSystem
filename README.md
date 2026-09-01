@@ -32,7 +32,7 @@ Based on [XK's repository](https://github.com/koster/CMS), with bug fixes and an
 ## Installation
 1. Download the `.unitypackage` from the [latest release](https://github.com/megurte/ContentManagementSystem/releases/latest) and import it into your project 
 2. Package already contains SerializeReferenceExtensions `https://github.com/mackysoft/Unity-SerializeReferenceExtensions`. If you already have it, exclude the import of Mackysoft’s files
-3. Create inside of **Resource** folder **CMS** directory to fetch data from there
+3. Create a **CMS** directory inside **Assets/Resources** — that exact path is what CMS loads from
 4. Create new game object on scene and add new component **CMSEntityPfb**
 5. Save this game object as prefab to **CMS** folder
 6. Update it's ID by using menu **CMS -> Auto-Fill IDs**
@@ -52,11 +52,22 @@ https://github.com/megurte/ContentManagementSystem.git?path=/src#1.6.0
 Define new entities that represent your data structure, such as characters, items, or dialogs.  
 Each entity is a data model that can be edited via the provided editor UI.
 
-To initialize CMS and load all entities use `CMS.Init()` command when game launches before any interaction with CMS. Or use `CMSHelpers.ReloadCMS()` to completely reload data in CMS.
+To initialize CMS and load all entities use `CMS.Init()` command when game launches before any interaction with CMS. `Init()` is idempotent — call it once, before anything touches CMS. To rebuild the table from scratch use `CMS.Unload()` followed by `CMS.Init()`; the `CMSHelpers.ReloadCMS()` shortcut does exactly that, but it lives in the editor assembly and is not available at runtime.
 
 CMS provides you:
 * **CMSEntity** - base class for defining game entities in code
-* **CMSEntityPfb** - ScriptableObject that holds serialized data and prefab-based definitions
+* **CMSEntityPfb** - MonoBehaviour you put on a prefab; it holds the serialized component list that becomes an entity at load time
+
+### Entity ids
+An id is what `CMS.Get<T>(id)` takes, and it is assigned for you:
+
+* **prefab entities** — the path under `Assets/Resources` without the extension, so `Assets/Resources/CMS/Enemies/Goblin.prefab` becomes `CMS/Enemies/Goblin`. Move a prefab and the id goes stale until you re-run **CMS -> Auto-Fill IDs**; `CMS -> Validate` reports the mismatch
+* **code entities** — the full type name of the class, filled in automatically
+
+`CMS.Get<T>()` throws when an id does not resolve, rather than returning null. Use `CMS.GetAll<T>()` and filter when the entity may legitimately be absent.
+
+### Entity sprite
+`GetSprite()` on an entity looks for a `TagSprite` component and returns its sprite; on a prefab it also falls back to a preview rendered from `TagMesh`. This is the same sprite the explorer, the entity dropdown and the inspector header draw, so an entity shows an icon only if it carries one of those tags. `Runtime/CMS/CommonTags.cs` ships `TagSprite`, `TagMesh`, `TagCMSEntity` and `TagListCMSEntity` — reuse them before writing your own.
 
 ### Example
 ![image](https://github.com/user-attachments/assets/722b7989-fa07-4a5b-86d0-0cc3573b486c)
@@ -87,12 +98,23 @@ shortcut to the script of the currently selected type.
 The CMS Explorer provides an in-Editor interface for managing your CMS entities with the following features:
 
 * Add / Delete Entities directly from the tree view
-* Rename Entities inline (F2 support)
-* Duplicate (Ctrl+D), multi-select delete (Del) and undo of the last delete (Ctrl+Z), which restores the asset with its original guid
 * Right-click menu: open, rename, duplicate, delete, show in project, copy id
 * Search matches entity names, ids and component type names, and every row lists its components underneath
-* Templates: save any entity as a reusable JSON-based template and instantiate new entities from it with all component data preserved
+* Templates: save any entity as a reusable JSON template and create new entities from it
 * Smart folder targeting when creating new prefabs (based on selected entity or folder)
+
+Open it with **CMS -> CMS Entity Explorer** (`Shift+Alt+C`). Shortcuts inside the tree:
+
+| Key | Action |
+| --- | --- |
+| `Enter` | open the entity in its own inspector window |
+| `F2` | rename inline |
+| `Ctrl+D` | duplicate, with the id rewritten to the new path |
+| `Del` | delete the selection, after a confirmation |
+| `Ctrl+Z` | restore the last delete, same asset and same guid |
+| `↑` from the top row | jump back to the search field |
+
+Templates are written to `Assets/Resources/CMS/Templates/<name>.json`. Two things to know about them: they are stored under `Resources`, so they end up in a build unless you move or strip that folder, and each component is serialized with `JsonUtility`. That means plain fields survive, but nested `[SerializeReference]` fields and references to assets do not — check a template-made entity before relying on it. The clipboard described above does not have this limitation.
 
 All functionality is integrated into a single streamlined window designed to speed up content iteration and reduce manual asset handling.
 
@@ -150,11 +172,19 @@ var concreteDataModel = CMS.Get<CMSEntity>(id); // ID is a path to your data mod
 if (bossEnemy.Is<TagSampleBehaviour>(out var behav))
   behav.Initialize();
 ```
-In case of abstraction use `entity.GetAbstract<T>()` or `entity.IsAbstract<T>(out var value)`. If you want a separate instance use the `DeepCopy()` extension.
+`Is<T>()` and `Get<T>()` need a concrete component type. For an abstract base use `entity.GetAbstract<T>()` or `entity.IsAbstract<T>(out var value)`, and for an interface use `entity.IsInterface<T>(out var value)`. If you want a separate instance use the `DeepCopy()` extension.
 
 Code generation allows you to automatically generate constant paths for all CMS prefabs.
-To regenerate these constants, use the menu option under the CMS tab.
-After that, you can reference prefabs using strongly-typed constants: `CMS.Get<CMSEntity>(Models.MyNewUnit);`
+Run **CMS -> Generate Models Constants**; it writes `Assets/GeneratedCodeBase/Constants.Models.cs` with a
+`Constants.Models` class, and groups the constants by the first folder under `Resources/CMS/Models/`
+(anything outside that path lands in an `Ungrouped` block). Regenerate after adding or moving prefabs
+and do not hand-edit the output. After that, you can reference prefabs using strongly-typed constants:
+
+```csharp
+using Constants;
+
+var unit = CMS.Get<CMSEntity>(Models.MyNewUnit);
+```
 <img width="318" height="127" alt="image" src="https://github.com/user-attachments/assets/6703a517-f5b2-46ba-a19e-72e71e48e015" />
 
 
@@ -184,7 +214,7 @@ public class TagCommonEnemyBehaviour : OpponentAI
 ```
 
 ### Field filtration
-To limit the selection in the CMSEntityPfb slot, there is a filtering mechanism based on the types that contain the components of the data model.
+To limit the selection in the CMSEntityPfb slot, there is a filtering mechanism based on the types that contain the components of the data model. `FilterTagsAttribute` lives in the `Runtime` namespace, and the filter matches base classes and interfaces too, so filtering by an abstract tag accepts every entity carrying a subclass of it.
 
 ```csharp
 [Serializable]
@@ -200,6 +230,19 @@ public class TagEnemyStartEquipment : EntityComponentDefinition
 }
 ```
 <img width="561" height="302" alt="image" src="https://github.com/user-attachments/assets/d89b6e4e-6e82-49f2-b757-616f4c70a54b" />
+
+## Editor menu
+
+| Item | What it does |
+| --- | --- |
+| `CMS -> CMS Entity Explorer` (`Shift+Alt+C`) | opens the explorer window |
+| `CMS -> Auto-Fill IDs` | rewrites every entity id from its asset path |
+| `CMS -> Validate` | reports id mismatches, duplicate ids, null components, missing sprites |
+| `CMS -> Generate Models Constants` | writes `Assets/GeneratedCodeBase/Constants.Models.cs` |
+| `CMS -> Reload` | `CMS.Unload()` + `CMS.Init()` without leaving the editor |
+
+Ids are auto-filled before a **WebGL** build by a build preprocessor. Other build targets are left
+alone, so run `CMS -> Auto-Fill IDs` (or `CMS -> Validate`) yourself before shipping on them.
 
 ## Feedback
 
